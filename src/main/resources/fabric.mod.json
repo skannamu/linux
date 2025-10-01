@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "skannamu",
+  "version": "1.0.0",
+  "name": "skannamuMod",
+  "description": "hello",
+  "authors": [
+    "skannamu"
+  ],
+
+  "license": "CC0-1.0",
+  "icon": "assets/skannamu/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.skannamu.skannamuMod"
+    ],
+    "client": [
+      "com.skannamu.SkannamuModClient"
+    ]
+  },
+  "mixins": [
+    "skannamu.mixins.json",
+    {
+      "config": "skannamu.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.10",
+    "minecraft": "~1.21.8",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
