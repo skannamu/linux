@@ -1,29 +1,35 @@
 package com.skannamu.init;
 
 import com.skannamu.item.block.standardBlock;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
+import com.skannamu.skannamuMod;
 import net.minecraft.block.Block;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
-import net.minecraft.util.Identifier;
-import net.minecraft.registry.Registry;
 import net.minecraft.registry.Registries;
-import net.minecraft.item.ItemGroups; // 크리에이티브 기본 탭
+import net.minecraft.registry.Registry;
+import net.minecraft.util.Identifier;
 
 public class BlockInitialization {
-    public static final Block STANDARD_BLOCK = new standardBlock();
 
-    public static void register() {
-        // 1. 블럭 등록
-        Registry.register(Registries.BLOCK, new Identifier("skannamu", "standard_block"), STANDARD_BLOCK);
+    public static final Block STANDARD_BLOCK = registerBlockWithItem(
+            "standard_block",
+            new standardBlock()
+    );
 
-        // 2. 블럭 아이템 등록
-        BlockItem blockItem = new BlockItem(STANDARD_BLOCK, new Item.Settings());
-        Registry.register(Registries.ITEM, new Identifier("skannamu", "standard_block"), blockItem);
+    private static Block registerBlockWithItem(String name, Block block) {
+        Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
+        Block registeredBlock = Registry.register(Registries.BLOCK, id, block);
+        Registry.register(
+                Registries.ITEM,
+                id,
+                new BlockItem(registeredBlock, new Item.Settings())
+        );
 
-        // 3. 크리에이티브 탭에 추가
-        ItemGroupEvents.modifyEntriesEvent(ItemGroups.BUILDING_BLOCKS).register(entries -> {
-            entries.add(blockItem);
-        });
+        return registeredBlock;
+    }
+
+    public static void initializeBlocks() {
+        Block temp = STANDARD_BLOCK;
+        skannamuMod.LOGGER.info("Registered Standard Block successfully!");
     }
 }

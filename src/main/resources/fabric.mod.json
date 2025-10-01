@@ -7,29 +7,20 @@
   "authors": [
     "skannamu"
   ],
-
   "license": "CC0-1.0",
-  "icon": "assets/skannamu/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
       "com.skannamu.skannamuMod"
-    ],
-    "client": [
-      "com.skannamu.SkannamuModClient"
     ]
   },
   "mixins": [
-    "skannamu.mixins.json",
-    {
-      "config": "skannamu.client.mixins.json",
-      "environment": "client"
-    }
+
   ],
   "depends": {
-    "fabricloader": ">=0.16.10",
-    "minecraft": "~1.21.8",
+    "fabricloader": ">=0.17.2",
+    "minecraft": "1.21.8",
     "java": ">=21",
-    "fabric-api": "*"
+    "fabric-api": ">=0.133.4"
   }
 }
