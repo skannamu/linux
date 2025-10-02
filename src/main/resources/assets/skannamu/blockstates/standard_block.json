@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "skannamu:block/standard_block"
+    }
+  }
+}

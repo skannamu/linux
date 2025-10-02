@@ -1,0 +1,17 @@
+{
+  "parent": "skannamu:block/standard_block",
+
+
+  "display": {
+    "thirdperson_righthand": { "rotation": [ 10, -45, 170 ], "translation": [ 0, 1.5, -2.75 ], "scale": [ 0.375, 0.375, 0.375 ] },
+    "firstperson_righthand": { "rotation": [ 0, -45, 20 ], "translation": [ 1.13, 3.2, 1.13 ], "scale": [ 0.68, 0.68, 0.68 ] }
+  },
+
+
+  "overrides": [
+    {
+      "predicate": { "custom_model_data": 0 },
+      "model": "skannamu:item/standard_block_icon"
+    }
+  ]
+}
