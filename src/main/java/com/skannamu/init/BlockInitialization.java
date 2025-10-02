@@ -2,9 +2,8 @@ package com.skannamu.init;
 
 import com.skannamu.item.block.standardBlock;
 import com.skannamu.skannamuMod;
-import com.skannamu.tooltip.standardBlockTooltip;
+import com.skannamu.tooltip.standardBlockToolTip;
 import net.minecraft.block.Block;
-import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
@@ -35,7 +34,7 @@ public class BlockInitialization {
         Registry.register(
                 Registries.ITEM,
                 itemKey,
-                new standardBlockTooltip(registeredBlock, itemSettings)
+                new standardBlockToolTip(registeredBlock, itemSettings)
         );
 
         return registeredBlock;

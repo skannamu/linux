@@ -9,13 +9,17 @@
   ],
   "license": "CC0-1.0",
   "environment": "*",
+
   "entrypoints": {
     "main": [
       "com.skannamu.skannamuMod"
+    ],
+    "client": [
+      "com.skannamu.skannamuModClient"
     ]
   },
-  "mixins": [
 
+  "mixins": [
   ],
   "depends": {
     "fabricloader": ">=0.17.2",
