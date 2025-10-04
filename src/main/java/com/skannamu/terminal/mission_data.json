@@ -1,0 +1,17 @@
+{
+  "terminal_settings": {
+    "activation_key": "SKN_ACCESS_ALPHA"
+  },
+  "filesystem": {
+    "directories": {
+      "/": "ip_port.txt\nhelp.txt\nlogs",
+      "/logs": "archive.log\nencrypted_message.dat"
+    },
+    "files": {
+      "/ip_port.txt": "Target URL requires manual entry: 192.168.1.13:8080. (Use the computer block after activation).",
+      "/help.txt": "SKN Terminal Manual:\n  - ls: List files in the current directory.\n  - cat <file>: Display file contents.\n  - calc <expression>: Perform simple arithmetic (e.g., calc 10*5+3).\n  - decrypt <base64>: Decode base64 strings.\n  - key <code>: Activate the company terminal.",
+      "/logs/archive.log": "System Log Snapshot:\nAccess attempt failed from external IP 203.245.1.1. Data payload was: U2tyS3IzQG1zU2sycmV0" ,
+      "/logs/encrypted_message.dat": "Encrypted Key (Base64):\nS2V5IGZvciB0aGUgZW5jcnlwdGlvbiBpcyA1NDE4NA=="
+    }
+  }
+}

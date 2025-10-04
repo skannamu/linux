@@ -5,10 +5,8 @@ import com.skannamu.skannamuMod;
 import com.skannamu.tooltip.standardBlockToolTip;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 
 public class BlockInitialization {
@@ -17,32 +15,31 @@ public class BlockInitialization {
 
     private static Block registerBlockWithItem(String name) {
         Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
-        RegistryKey<Block> blockKey = RegistryKey.of(RegistryKeys.BLOCK, id);
-        RegistryKey<Item> itemKey = RegistryKey.of(RegistryKeys.ITEM, id);
 
         Block.Settings blockSettings = Block.Settings.create()
-                .registryKey(blockKey)
                 .strength(1.5f)
                 .requiresTool();
 
-        Block registeredBlock = Registry.register(Registries.BLOCK, blockKey, new standardBlock(blockSettings));
+        Block registeredBlock = Registry.register(
+                Registries.BLOCK,
+                id,
+                new standardBlock(blockSettings)
+        );
 
-        Item.Settings itemSettings = new Item.Settings()
-                .registryKey(itemKey);
+        Item.Settings itemSettings = new Item.Settings();
 
-        // standardBlockTooltip 사용
         Registry.register(
                 Registries.ITEM,
-                itemKey,
+                id,
                 new standardBlockToolTip(registeredBlock, itemSettings)
         );
 
+        skannamuMod.LOGGER.info("Registered block and item: " + id.toString());
         return registeredBlock;
     }
 
     public static void initializeBlocks() {
         STANDARD_BLOCK = registerBlockWithItem("standard_block");
-
         skannamuMod.LOGGER.info("Registered Standard Block successfully!");
     }
 }
