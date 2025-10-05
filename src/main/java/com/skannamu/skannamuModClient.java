@@ -3,9 +3,7 @@
 package com.skannamu;
 
 import com.skannamu.client.gui.TerminalScreen;
-import com.skannamu.client.gui.UrlInputScreen; // ⚡️ UrlInputScreen Import
 import com.skannamu.network.TerminalOutputPayload;
-import com.skannamu.network.UrlScreenOpenPayload; // ⚡️ 신규 패킷 Import
 import com.skannamu.tooltip.standardBlockToolTip;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
@@ -15,6 +13,8 @@ import net.minecraft.client.gui.screen.Screen;
 
 
 public class skannamuModClient implements ClientModInitializer {
+
+    public static boolean isPlayerActive = false;
 
     @Override
     public void onInitializeClient() {
@@ -30,19 +30,16 @@ public class skannamuModClient implements ClientModInitializer {
                         if (currentScreen instanceof TerminalScreen terminalScreen) {
                             terminalScreen.appendOutput(output);
                         }
+                        // 활성화 성공 메시지 확인 후 클라이언트 로컬 상태 업데이트
+                        if (output.contains("Key accepted")) {
+                            isPlayerActive = true;
+                        }
                     });
                 });
 
-        // ⚡️ 2. URL 입력창 열기 명령 패킷 수신 리스너 (StandardBlock 동작의 핵심)
-        ClientPlayNetworking.registerGlobalReceiver(UrlScreenOpenPayload.ID,
-                (UrlScreenOpenPayload payload, ClientPlayNetworking.Context context) -> {
-                    context.client().execute(() -> {
-                        // 서버에서 권한을 확인하고 보낸 명령에 따라 UI를 엽니다.
-                        context.client().setScreen(new UrlInputScreen());
-                    });
-                });
+        // UrlScreenOpenPayload 리스너 제거 (더 이상 사용하지 않음)
 
-
+        // 툴팁 리스너 (기존 로직 유지)
         ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
             if (stack.getItem() instanceof standardBlockToolTip) {
                 // 툴팁 로직 (생략)

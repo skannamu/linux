@@ -1,4 +1,4 @@
-package com.skannamu.network;
+/*package com.skannamu.network;
 
 import com.skannamu.skannamuMod;
 import net.minecraft.network.RegistryByteBuf;
@@ -25,4 +25,4 @@ public record UrlScreenOpenPayload() implements CustomPayload {
     public CustomPayload.Id<? extends CustomPayload> getId() {
         return ID;
     }
-}
+}*/
