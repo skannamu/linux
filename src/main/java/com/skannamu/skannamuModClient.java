@@ -1,5 +1,3 @@
-// src/main/java/com/skannamu/skannamuModClient.java
-
 package com.skannamu;
 
 import com.skannamu.client.gui.TerminalScreen;
@@ -8,9 +6,10 @@ import com.skannamu.tooltip.standardBlockToolTip;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
-
+import net.minecraft.text.Text;
 
 public class skannamuModClient implements ClientModInitializer {
 
@@ -18,17 +17,18 @@ public class skannamuModClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        skannamuMod.LOGGER.info("skannamuMod Client initialized!");
+        com.skannamu.skannamuMod.LOGGER.info("skannamuMod Client initialized!");
 
-        // 1. 터미널 출력 패킷 수신 리스너 (기존 로직 유지)
+        PayloadTypeRegistry.playS2C().register(TerminalOutputPayload.ID, TerminalOutputPayload.CODEC);
+
         ClientPlayNetworking.registerGlobalReceiver(TerminalOutputPayload.ID,
                 (TerminalOutputPayload payload, ClientPlayNetworking.Context context) -> {
-
                     String output = payload.output();
                     context.client().execute(() -> {
                         Screen currentScreen = MinecraftClient.getInstance().currentScreen;
                         if (currentScreen instanceof TerminalScreen terminalScreen) {
-                            terminalScreen.appendOutput(output);
+                            terminalScreen.appendOutput(output); // 서버 응답 추가
+                            terminalScreen.appendOutput(terminalScreen.getPrompt()); // 다음 프롬프트 추가
                         }
                         // 활성화 성공 메시지 확인 후 클라이언트 로컬 상태 업데이트
                         if (output.contains("Key accepted")) {
@@ -37,12 +37,9 @@ public class skannamuModClient implements ClientModInitializer {
                     });
                 });
 
-        // UrlScreenOpenPayload 리스너 제거 (더 이상 사용하지 않음)
-
-        // 툴팁 리스너 (기존 로직 유지)
         ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
             if (stack.getItem() instanceof standardBlockToolTip) {
-                // 툴팁 로직 (생략)
+                lines.add(Text.literal("Standard Block Tooltip")); // 예시 툴팁
             }
         });
     }

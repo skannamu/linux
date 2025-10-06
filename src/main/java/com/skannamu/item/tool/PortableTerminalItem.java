@@ -1,4 +1,3 @@
-// PortableTerminalItem.java (수정버전)
 package com.skannamu.item.tool;
 
 import com.skannamu.client.gui.TerminalScreen;

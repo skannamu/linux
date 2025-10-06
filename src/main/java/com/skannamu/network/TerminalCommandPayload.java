@@ -1,5 +1,3 @@
-// src/main/java/com/skannamu/network/TerminalCommandPayload.java
-
 package com.skannamu.network;
 
 import com.skannamu.skannamuMod;

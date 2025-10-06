@@ -2,8 +2,12 @@ package com.skannamu.init;
 
 import com.skannamu.item.block.standardBlock;
 import com.skannamu.skannamuMod;
-import net.minecraft.block.AbstractBlock;
+import com.skannamu.tooltip.standardBlockToolTip;
 import net.minecraft.block.Block;
+import net.minecraft.item.Item;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 
@@ -11,16 +15,31 @@ public class BlockInitialization {
 
     public static Block STANDARD_BLOCK;
 
+    private static Block registerBlockWithItem(String name) {
+        Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
+
+        RegistryKey<Block> blockKey = RegistryKey.of(RegistryKeys.BLOCK, id);
+        RegistryKey<Item> itemKey = RegistryKey.of(RegistryKeys.ITEM, id);
+
+        Block.Settings blockSettings = Block.Settings.create()
+                .registryKey(blockKey)
+                .strength(1.5f)
+                .requiresTool();
+
+        Block registeredBlock = Registry.register(Registries.BLOCK, blockKey, new standardBlock(blockSettings));
+
+        Item.Settings itemSettings = new Item.Settings()
+                .registryKey(itemKey);
+
+        Registry.register(
+                Registries.ITEM,
+                itemKey,
+                new standardBlockToolTip(registeredBlock, itemSettings)
+        );
+        return registeredBlock;
+    }
     public static void initializeBlocks() {
-        Identifier id = Identifier.of(skannamuMod.MOD_ID, "standard_block");
-
-        // Block.Settings 설정
-        AbstractBlock.Settings blockSettings = AbstractBlock.Settings.create()
-                .strength(1.5f);
-
-        // Registries.BLOCK에 register 호출 (Supplier<Block> 사용)
-        STANDARD_BLOCK = Registries.register(Registries.BLOCK, id, () -> new standardBlock(blockSettings));
-
-        skannamuMod.LOGGER.info("Registered Standard Block successfully: {}", id);
+        STANDARD_BLOCK = registerBlockWithItem("standard_block");
+        skannamuMod.LOGGER.info("Registered Standard Block successfully!");
     }
 }
