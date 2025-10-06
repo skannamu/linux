@@ -1,5 +1,3 @@
-// src/main/java/com/skannamu/item/block/standardBlock.java (최종 수정 전문)
-
 package com.skannamu.item.block;
 
 import com.skannamu.client.gui.UrlInputScreen;
@@ -35,7 +33,6 @@ public class standardBlock extends Block {
                 return ActionResult.CONSUME;
             }
         } else {
-            // 서버 측 로직: 상태 확인 후 SUCCESS 또는 CONSUME 반환 (UI 열기는 클라이언트에서 처리)
             boolean isActive = ServerCommandProcessor.isPlayerActive(player.getUuid());
 
             if (isActive) {

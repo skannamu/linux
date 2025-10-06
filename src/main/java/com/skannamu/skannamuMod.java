@@ -19,6 +19,7 @@ import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Map;
+import java.util.Base64; // Base64 인코딩을 사용하기 위해 임포트 추가
 
 public class skannamuMod implements ModInitializer {
     public static final String MOD_ID = "skannamu";
@@ -58,17 +59,23 @@ public class skannamuMod implements ModInitializer {
     }
 
     private void initializeTerminalSystem() {
+        // 실제 활성화 키를 정의합니다. (이것이 decrypt 후 플레이어가 얻는 값)
+        String actualKey = "flag_text_SOMETHING";
+
+        // actualKey를 Base64로 인코딩합니다.
+        String encodedKey = Base64.getEncoder().encodeToString(actualKey.getBytes());
+
         // 1. 초기 파일 시스템 데이터 정의
         Map<String, String> initialFilesystem = Map.of(
                 "/", "help.txt\nprograms/\nsecrets.dat", // ls / 명령 결과
                 "help.txt", "사용법: ls, cat, decrypt, calc, key [code]를 입력하세요. \n터미널 접근 권한을 얻으려면 'key' 명령을 사용하세요.",
                 "programs/", "run.exe",
-                "secrets.dat", "ZmxhZ190ZXh0X1NPTUVUSElORw=="
+                "secrets.dat", encodedKey // <-- 디코딩 결과가 실제 키와 일치하도록 수정
         );
 
         ServerCommandProcessor.setFilesystem(initialFilesystem);
 
-        ServerCommandProcessor.setActivationKey("12345"); // 예시 활성화 키
+        ServerCommandProcessor.setActivationKey(actualKey); // <-- 실제 키로 수정
 
         LOGGER.info("Terminal FAKE_FILESYSTEM and ACTIVATION_KEY initialized.");
     }

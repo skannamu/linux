@@ -34,14 +34,27 @@ public class TerminalScreen extends Screen {
 
     private void handleCommand(String command) {
         if (!command.isEmpty()) {
-            appendOutput(">>> " + command + '\n'); // 명령어 기록
+            // 2. 명령어 기록을 '프롬프트 + 입력'으로 변경하여 렌더링 로직과 일치시킵니다.
+            String commandLine = prompt + currentInput; // currentInput을 사용해야 공백도 포함됨
+            outputLines.set(outputLines.size() - 1, commandLine); // 마지막 줄 (프롬프트만 있던 줄)을 명령어 줄로 교체
             ClientPlayNetworking.send(new TerminalCommandPayload(command));
         }
     }
 
     public void appendOutput(String output) {
-        outputLines.add(output);
-        if (outputLines.size() > 100) { // 출력 제한
+        // 1. \n을 기준으로 문자열을 분리하여 각 줄을 outputLines에 추가
+        String[] lines = output.split("\\n");
+        for (String line : lines) {
+            outputLines.add(line);
+        }
+
+        // 1. 응답이 끝난 후, 자동으로 다음 프롬프트를 추가합니다.
+        if (!outputLines.isEmpty() && !outputLines.get(outputLines.size() - 1).equals(prompt)) {
+            outputLines.add(prompt);
+        }
+
+        // 출력 제한
+        while (outputLines.size() > 100) {
             outputLines.remove(0);
         }
     }
@@ -49,7 +62,7 @@ public class TerminalScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) { // Enter 또는 Numpad Enter
-            String command = currentInput.trim();
+            String command = currentInput; // trim()을 제거하여 공백만 입력 시에도 처리되도록 함 (handleCommand에서 !command.isEmpty()로 체크)
             handleCommand(command);
             currentInput = ""; // 입력 초기화
             return true;
@@ -66,74 +79,21 @@ public class TerminalScreen extends Screen {
             currentInput = "";
             return true;
         }
-        char character = getCharacterFromKeyCode(keyCode, scanCode, modifiers);
-        if (character != 0 && isPrintable(character)) {
-            if (textRenderer.getWidth(prompt + currentInput + character) < width - 20) { // 화면 너비 제한
-                currentInput += character;
-            }
-            return true;
-        }
+        // 문자 입력 로직은 charTyped로 이동합니다.
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    private char getCharacterFromKeyCode(int keyCode, int scanCode, int modifiers) {
-        String keyName = GLFW.glfwGetKeyName(keyCode, scanCode);
-        if (keyName != null && keyName.length() == 1) {
-            return keyName.charAt(0);
-        }
-        if (modifiers == GLFW.GLFW_MOD_SHIFT && keyCode >= GLFW.GLFW_KEY_A && keyCode <= GLFW.GLFW_KEY_Z) {
-            return (char) (keyCode - GLFW.GLFW_KEY_A + 'A');
-        }
-        if (keyCode >= GLFW.GLFW_KEY_A && keyCode <= GLFW.GLFW_KEY_Z) {
-            return (char) (keyCode - GLFW.GLFW_KEY_A + 'a');
-        }
-        if (keyCode >= GLFW.GLFW_KEY_0 && keyCode <= GLFW.GLFW_KEY_9) {
-            return (char) (keyCode - GLFW.GLFW_KEY_0 + '0');
-        }
-        // 기본 특수문자 (Shift 상태 고려)
-        if (modifiers == GLFW.GLFW_MOD_SHIFT) {
-            switch (keyCode) {
-                case GLFW.GLFW_KEY_1: return '!';
-                case GLFW.GLFW_KEY_2: return '@';
-                case GLFW.GLFW_KEY_3: return '#';
-                case GLFW.GLFW_KEY_4: return '$';
-                case GLFW.GLFW_KEY_5: return '%';
-                case GLFW.GLFW_KEY_6: return '^';
-                case GLFW.GLFW_KEY_7: return '&';
-                case GLFW.GLFW_KEY_8: return '*';
-                case GLFW.GLFW_KEY_9: return '(';
-                case GLFW.GLFW_KEY_0: return ')';
-                case GLFW.GLFW_KEY_MINUS: return '_';
-                case GLFW.GLFW_KEY_EQUAL: return '+';
-                case GLFW.GLFW_KEY_LEFT_BRACKET: return '{';
-                case GLFW.GLFW_KEY_RIGHT_BRACKET: return '}';
-                case GLFW.GLFW_KEY_SEMICOLON: return ':';
-                case GLFW.GLFW_KEY_APOSTROPHE: return '"';
-                case GLFW.GLFW_KEY_BACKSLASH: return '|';
-                case GLFW.GLFW_KEY_COMMA: return '<';
-                case GLFW.GLFW_KEY_PERIOD: return '>';
-                case GLFW.GLFW_KEY_SLASH: return '?';
+    // 3. charTyped를 사용하여 Shift를 포함한 문자 입력을 정확하게 처리하고, 오류가 나던 isPrintable 부분을 대체
+    @Override
+    public boolean charTyped(char chr, int modifiers) {
+        // chr이 인쇄 가능한 ASCII 문자 범위 (32~126)에 있는지 확인합니다.
+        if (chr >= 32 && chr <= 126 && chr != '\n' && chr != '\r') {
+            if (textRenderer.getWidth(prompt + currentInput + chr) < width - 20) { // 화면 너비 제한
+                currentInput += chr;
             }
-        } else {
-            switch (keyCode) {
-                case GLFW.GLFW_KEY_MINUS: return '-';
-                case GLFW.GLFW_KEY_EQUAL: return '=';
-                case GLFW.GLFW_KEY_LEFT_BRACKET: return '[';
-                case GLFW.GLFW_KEY_RIGHT_BRACKET: return ']';
-                case GLFW.GLFW_KEY_SEMICOLON: return ';';
-                case GLFW.GLFW_KEY_APOSTROPHE: return '\'';
-                case GLFW.GLFW_KEY_BACKSLASH: return '\\';
-                case GLFW.GLFW_KEY_COMMA: return ',';
-                case GLFW.GLFW_KEY_PERIOD: return '.';
-                case GLFW.GLFW_KEY_SLASH: return '/';
-                case GLFW.GLFW_KEY_SPACE: return ' ';
-            }
+            return true;
         }
-        return 0; // 처리되지 않은 키
-    }
-
-    private boolean isPrintable(char c) {
-        return c >= 32 && c < 127; // 기본 인쇄 가능 ASCII 문자
+        return super.charTyped(chr, modifiers);
     }
 
     @Override
@@ -147,24 +107,41 @@ public class TerminalScreen extends Screen {
 
         // 출력 및 입력 렌더링
         int y = 10;
-        for (int i = 0; i < outputLines.size() - 1; i++) { // 마지막 줄 제외
-            context.drawTextWithShadow(textRenderer, outputLines.get(i), 10, y, 0xFFFFFFFF);
-            y += textRenderer.fontHeight + 2;
-        }
-        // 마지막 줄 (프롬프트 + 입력)
-        if (!outputLines.isEmpty()) {
-            String lastLine = outputLines.get(outputLines.size() - 1);
-            if (lastLine.equals(prompt)) {
-                context.drawTextWithShadow(textRenderer, prompt, 10, y, 0xFF00FF00); // 녹색 프롬프트
-                context.drawTextWithShadow(textRenderer, currentInput, 10 + textRenderer.getWidth(prompt), y, 0xFFFFFFFF); // 입력 텍스트
+        for (int i = 0; i < outputLines.size(); i++) {
+            String line = outputLines.get(i);
+            int startX = 10;
+
+            // 현재 입력 중인 마지막 줄
+            if (i == outputLines.size() - 1 && line.equals(prompt)) {
+                // 현재 프롬프트 (녹색)
+                context.drawTextWithShadow(textRenderer, prompt, startX, y, 0xFF00FF00);
+                startX += textRenderer.getWidth(prompt);
+
+                // 입력 텍스트 (흰색)
+                context.drawTextWithShadow(textRenderer, currentInput, startX, y, 0xFFFFFFFF);
+
                 // 커서 표시
                 if ((System.currentTimeMillis() / 500) % 2 == 0) {
-                    context.drawTextWithShadow(textRenderer, "_", 10 + textRenderer.getWidth(prompt + currentInput), y, 0xFFFFFFFF);
+                    startX += textRenderer.getWidth(currentInput);
+                    context.drawTextWithShadow(textRenderer, "_", startX, y, 0xFFFFFFFF);
                 }
-            } else {
-                // 서버 응답 출력
-                context.drawTextWithShadow(textRenderer, lastLine, 10, y, 0xFFFFFFFF);
             }
+            // 2. 명령어 입력이 완료된 이전 줄 (프롬프트로 시작하는 경우)
+            else if (line.startsWith(prompt)) {
+                // 프롬프트 부분 (녹색)
+                context.drawTextWithShadow(textRenderer, prompt, startX, y, 0xFF00FF00);
+                startX += textRenderer.getWidth(prompt);
+
+                // 명령어 부분 (흰색)
+                String commandText = line.substring(prompt.length());
+                context.drawTextWithShadow(textRenderer, commandText, startX, y, 0xFFFFFFFF);
+            }
+            // 일반 출력 (흰색)
+            else {
+                context.drawTextWithShadow(textRenderer, line, startX, y, 0xFFFFFFFF);
+            }
+
+            y += textRenderer.fontHeight + 2;
         }
 
         super.render(context, mouseX, mouseY, delta);
