@@ -24,7 +24,7 @@ public class TerminalScreen extends Screen {
 
     @Override
     protected void init() {
-        prompt = "SKN@" + client.getSession().getUsername() + ":# ";
+        prompt = "SKN@" + client.getSession().getUsername() + ":~# ";
         appendOutput(prompt); // 초기 프롬프트 표시
     }
 
@@ -34,10 +34,8 @@ public class TerminalScreen extends Screen {
 
     private void handleCommand(String command) {
         if (!command.isEmpty()) {
-            // 명령어 처리 후 새로운 줄에 결과 추가
-            appendOutput("> " + command); // 명령어 기록
+            appendOutput(">>> " + command + '\n'); // 명령어 기록
             ClientPlayNetworking.send(new TerminalCommandPayload(command));
-            // 새로운 줄에 프롬프트는 서버 응답 후 자동 추가되므로 여기서는 생략
         }
     }
 
@@ -60,7 +58,6 @@ public class TerminalScreen extends Screen {
             this.client.setScreen(null);
             return true;
         }
-        // 백스페이스, 삭제, 인쇄 가능 문자 처리
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !currentInput.isEmpty()) { // Backspace
             currentInput = currentInput.substring(0, currentInput.length() - 1);
             return true;
@@ -80,12 +77,10 @@ public class TerminalScreen extends Screen {
     }
 
     private char getCharacterFromKeyCode(int keyCode, int scanCode, int modifiers) {
-        // GLFW를 사용해 키 이름 추출
         String keyName = GLFW.glfwGetKeyName(keyCode, scanCode);
         if (keyName != null && keyName.length() == 1) {
             return keyName.charAt(0);
         }
-        // 수동 매핑 (알파벳, 숫자, 기본 특수문자)
         if (modifiers == GLFW.GLFW_MOD_SHIFT && keyCode >= GLFW.GLFW_KEY_A && keyCode <= GLFW.GLFW_KEY_Z) {
             return (char) (keyCode - GLFW.GLFW_KEY_A + 'A');
         }
@@ -150,7 +145,7 @@ public class TerminalScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         renderBackground(context, mouseX, mouseY, delta);
 
-        // 출력 및 입력 렌der링
+        // 출력 및 입력 렌더링
         int y = 10;
         for (int i = 0; i < outputLines.size() - 1; i++) { // 마지막 줄 제외
             context.drawTextWithShadow(textRenderer, outputLines.get(i), 10, y, 0xFFFFFFFF);

@@ -18,6 +18,7 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Map;
 
 public class skannamuMod implements ModInitializer {
     public static final String MOD_ID = "skannamu";
@@ -31,8 +32,6 @@ public class skannamuMod implements ModInitializer {
         LOGGER.info("Initializing skannamuMod...");
 
         BlockInitialization.initializeBlocks();
-
-        // PORTABLE_TERMINAL 등록 수정: registryKey 추가
         Identifier portableTerminalId = Identifier.of(MOD_ID, "portable_terminal");
         RegistryKey<Item> portableTerminalKey = RegistryKey.of(RegistryKeys.ITEM, portableTerminalId);
         PORTABLE_TERMINAL = Registry.register(
@@ -42,13 +41,9 @@ public class skannamuMod implements ModInitializer {
         );
 
         STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
-
         DataLoader.registerDataLoaders();
-
-        // Payload 타입 등록 추가: C2S (클라이언트 → 서버) 방향
+        initializeTerminalSystem();
         PayloadTypeRegistry.playC2S().register(TerminalCommandPayload.ID, TerminalCommandPayload.CODEC);
-
-        // 네트워크 리시버 등록
         ServerPlayNetworking.registerGlobalReceiver(TerminalCommandPayload.ID,
                 (payload, context) -> {
                     MinecraftServer server = context.server();
@@ -60,5 +55,21 @@ public class skannamuMod implements ModInitializer {
                 });
 
         LOGGER.info("skannamuMod initialized successfully!");
+    }
+
+    private void initializeTerminalSystem() {
+        // 1. 초기 파일 시스템 데이터 정의
+        Map<String, String> initialFilesystem = Map.of(
+                "/", "help.txt\nprograms/\nsecrets.dat", // ls / 명령 결과
+                "help.txt", "사용법: ls, cat, decrypt, calc, key [code]를 입력하세요. \n터미널 접근 권한을 얻으려면 'key' 명령을 사용하세요.",
+                "programs/", "run.exe",
+                "secrets.dat", "ZmxhZ190ZXh0X1NPTUVUSElORw=="
+        );
+
+        ServerCommandProcessor.setFilesystem(initialFilesystem);
+
+        ServerCommandProcessor.setActivationKey("12345"); // 예시 활성화 키
+
+        LOGGER.info("Terminal FAKE_FILESYSTEM and ACTIVATION_KEY initialized.");
     }
 }
