@@ -58,8 +58,6 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
         Identifier resourceId = resourceIds.iterator().next();
 
         try {
-            // ⚡️ 오류 수정: getResource().orElseThrow() 대신 Optional 체인을 사용하고,
-            // try-with-resources에서 Resource 대신 InputStream을 사용하도록 구조 변경
             Resource resource = manager.getResource(resourceId).orElseThrow(
                     () -> new IOException("Resource not found for ID: " + resourceId)
             );

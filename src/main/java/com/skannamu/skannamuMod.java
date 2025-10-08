@@ -1,11 +1,15 @@
 package com.skannamu;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.skannamu.init.BlockInitialization;
 import com.skannamu.item.tool.PortableTerminalItem;
 import com.skannamu.network.TerminalCommandPayload;
 import com.skannamu.server.DataLoader;
+import com.skannamu.server.MissionData;
 import com.skannamu.server.ServerCommandProcessor;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
@@ -18,8 +22,9 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Base64; // Base64 인코딩을 사용하기 위해 임포트 추가
 
 public class skannamuMod implements ModInitializer {
     public static final String MOD_ID = "skannamu";
@@ -42,8 +47,11 @@ public class skannamuMod implements ModInitializer {
         );
 
         STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
+
         DataLoader.registerDataLoaders();
-        initializeTerminalSystem();
+
+        ServerLifecycleEvents.SERVER_STARTED.register(this::initializeTerminalSystem);
+
         PayloadTypeRegistry.playC2S().register(TerminalCommandPayload.ID, TerminalCommandPayload.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(TerminalCommandPayload.ID,
                 (payload, context) -> {
@@ -58,25 +66,42 @@ public class skannamuMod implements ModInitializer {
         LOGGER.info("skannamuMod initialized successfully!");
     }
 
-    private void initializeTerminalSystem() {
-        // 실제 활성화 키를 정의합니다. (이것이 decrypt 후 플레이어가 얻는 값)
-        String actualKey = "flag_text_SOMETHING";
+    private void initializeTerminalSystem(MinecraftServer server) {
+        JsonElement jsonElement = DataLoader.INSTANCE.getMissionData();
+        if (jsonElement == null || !jsonElement.isJsonObject()) {
+            LOGGER.error("Failed to load or parse mission_data.json. Using default configuration.");
+            return;
+        }
 
-        // actualKey를 Base64로 인코딩합니다.
-        String encodedKey = Base64.getEncoder().encodeToString(actualKey.getBytes());
+        Gson gson = new Gson();
+        MissionData missionData = gson.fromJson(jsonElement, MissionData.class);
 
-        // 1. 초기 파일 시스템 데이터 정의
-        Map<String, String> initialFilesystem = Map.of(
-                "/", "help.txt\nprograms/\nsecrets.dat", // ls / 명령 결과
-                "help.txt", "사용법: ls, cat, decrypt, calc, key [code]를 입력하세요. \n터미널 접근 권한을 얻으려면 'key' 명령을 사용하세요.",
-                "programs/", "run.exe",
-                "secrets.dat", encodedKey // <-- 디코딩 결과가 실제 키와 일치하도록 수정
-        );
+        // 1. 파일 시스템 Map 분리 및 통합
+        Map<String, String> allFilesystem = new HashMap<>(); // 모든 경로 (파일 내용 + 디렉토리 ls 내용)
+        Map<String, String> directoriesOnly = new HashMap<>(); // 디렉토리 경로만 (cd/ls 확인용)
 
-        ServerCommandProcessor.setFilesystem(initialFilesystem);
+        if (missionData.filesystem != null) {
+            if (missionData.filesystem.directories != null) {
+                // 디렉토리 경로: directoriesOnly 맵과 allFilesystem 맵 모두에 추가
+                directoriesOnly.putAll(missionData.filesystem.directories);
+                allFilesystem.putAll(missionData.filesystem.directories);
+            }
+            if (missionData.filesystem.files != null) {
+                // 파일 경로: allFilesystem 맵에만 추가 (cat 가능)
+                allFilesystem.putAll(missionData.filesystem.files);
+            }
+        }
 
-        ServerCommandProcessor.setActivationKey(actualKey); // <-- 실제 키로 수정
+        // 2. CommandProcessor에 설정합니다. (두 개의 맵 전달)
+        ServerCommandProcessor.setFilesystem(allFilesystem, directoriesOnly);
 
-        LOGGER.info("Terminal FAKE_FILESYSTEM and ACTIVATION_KEY initialized.");
+        // 3. 활성화 키를 설정합니다.
+        if (missionData.terminal_settings != null) {
+            ServerCommandProcessor.setActivationKey(missionData.terminal_settings.activation_key);
+        } else {
+            ServerCommandProcessor.setActivationKey(null);
+        }
+
+        LOGGER.info("Terminal FAKE_FILESYSTEM and ACTIVATION_KEY initialized from JSON.");
     }
 }

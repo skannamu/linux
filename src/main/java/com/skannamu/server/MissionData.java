@@ -16,6 +16,3 @@ public class MissionData {
         public Map<String, String> files;
     }
 }
-//json데이터 구조를 정의함.
-//mission_data.json의 내용을 자바로 변환.
-//GSON라이브러리가 있는데, 그게 이 설계도를 사용함.
