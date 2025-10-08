@@ -28,7 +28,8 @@ public class skannamuModClient implements ClientModInitializer {
                         Screen currentScreen = MinecraftClient.getInstance().currentScreen;
                         if (currentScreen instanceof TerminalScreen terminalScreen) {
                             terminalScreen.appendOutput(output); // 서버 응답 추가
-                            terminalScreen.appendOutput(terminalScreen.getPrompt()); // 다음 프롬프트 추가
+                            // **수정:** 다음 프롬프트를 수동으로 추가하는 로직을 제거했습니다.
+                            // 프롬프트는 이제 TerminalScreen.handleCommand 및 appendOutput에서 자동으로 관리됩니다.
                         }
                         // 활성화 성공 메시지 확인 후 클라이언트 로컬 상태 업데이트
                         if (output.contains("Key accepted")) {
