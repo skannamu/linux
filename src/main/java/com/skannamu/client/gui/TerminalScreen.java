@@ -152,22 +152,20 @@ public class TerminalScreen extends Screen {
                     context.drawTextWithShadow(textRenderer, "_", startX, currentY, 0xFFFFFFFF);
                 }
             }
-            // **2. 명령어 입력이 완료된 이전 줄 (프롬프트로 시작하는 경우)**
+
             else if (line.startsWith(prompt)) {
-                // 프롬프트 부분 (녹색)
+
                 context.drawTextWithShadow(textRenderer, prompt, startX, currentY, 0xFF00FF00);
                 startX += textRenderer.getWidth(prompt);
 
-                // 명령어 부분 (흰색)
                 String commandText = line.substring(prompt.length());
                 context.drawTextWithShadow(textRenderer, commandText, startX, currentY, 0xFFFFFFFF);
             }
-            // **3. 일반 출력 (흰색)**
+
             else {
                 context.drawTextWithShadow(textRenderer, line, startX, currentY, 0xFFFFFFFF);
             }
 
-            // 다음 줄을 그리기 위해 Y 좌표를 증가시킵니다.
             currentY += LINE_HEIGHT;
         }
 

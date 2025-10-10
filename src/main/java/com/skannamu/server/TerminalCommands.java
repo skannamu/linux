@@ -1,18 +1,35 @@
 package com.skannamu.server;
 
+import com.skannamu.server.command.*; // ICommand와 모든 명령어 클래스 임포트
 import net.minecraft.server.network.ServerPlayerEntity;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.*;
 
 public class TerminalCommands {
 
     public static Map<String, String> FAKE_FILESYSTEM = null;
     public static Map<String, String> FAKE_DIRECTORIES = null;
-    private static String ACTIVATION_KEY = null;
+    public static String ACTIVATION_KEY = null;
+
+    private static final Map<String, ICommand> COMMAND_REGISTRY = new HashMap<>();
+
+    static {
+        // 모든 명령어 인스턴스 등록
+        registerCommand(new LsCommand());
+        registerCommand(new CatCommand());
+        registerCommand(new CdCommand());
+        registerCommand(new DecryptCommand());
+        registerCommand(new CalcCommand());
+        registerCommand(new KeyCommand());
+        registerCommand(new PwdCommand());
+    }
+
+    public static void registerCommand(ICommand command) {
+        COMMAND_REGISTRY.put(command.getName().toLowerCase(), command);
+    }
+
+    public static Set<String> getAllCommandNames() {
+        return COMMAND_REGISTRY.keySet();
+    }
 
     public static void setFilesystem(Map<String, String> allFiles, Map<String, String> directoriesOnly) {
         FAKE_FILESYSTEM = allFiles;
@@ -36,24 +53,43 @@ public class TerminalCommands {
             return "Error: Terminal system data is not initialized. Please notify the administrator.";
         }
 
-        switch (commandName.toLowerCase()) {
-            case "ls":
-                return handleLsCommand(player, argument);
-            case "cat":
-                return handleCatCommand(player, argument);
-            case "cd":
-                return handleCdCommand(player, argument);
-            case "decrypt":
-                return handleDecryptCommand(argument);
-            case "calc":
-                return handleCalcCommand(argument);
-            case "key":
-                return handleKeyCommand(player, argument);
-            default:
-                return "Error: Command '" + commandName + "' not found. Type 'cat help.txt' for usage.";
-        }
-    }
+        String lowerCommand = commandName.toLowerCase();
+        ICommand command = COMMAND_REGISTRY.get(lowerCommand);
 
+        if (command == null) {
+            return "Error: Command '" + commandName + "' not found. Type 'cat help.txt' for usage.";
+        }
+
+        ServerCommandProcessor.PlayerState state = getPlayerState(player.getUuid());
+        if (!state.isCommandAvailable(lowerCommand)) {
+            return "Error: Command '" + commandName + "' module is missing. Find and 'install' the binary module.";
+        }
+
+        List<String> options = new ArrayList<>();
+        String rawArgument = argument.trim();
+
+        String[] parts = rawArgument.split("\\s+");
+        StringBuilder argBuilder = new StringBuilder(); // 순수 인수를 모을 빌더
+
+        for (String part : parts) {
+            if (part.startsWith("-") && part.length() > 1) {
+
+                for (char optionChar : part.substring(1).toCharArray()) {
+                    options.add(String.valueOf(optionChar));
+                }
+            } else if (!part.isBlank()) {
+                // 옵션이 아닌 나머지 부분 (순수 인수)만 다시 모읍니다.
+                if (argBuilder.length() > 0) argBuilder.append(" ");
+                argBuilder.append(part);
+            }
+        }
+        String remainingArgument = argBuilder.toString().trim();
+
+        if (options.contains("h")) {
+            return command.getUsage(); // 여기서 즉시 반환하여 execute 호출을 방지합니다.
+        }
+        return command.execute(player, options, remainingArgument);
+    }
     public static String normalizePath(String path) {
         if (path.isEmpty()) return "/";
         String normalized = path.replaceAll("//+", "/");
@@ -65,156 +101,19 @@ public class TerminalCommands {
         }
         return normalized.isEmpty() ? "/" : normalized;
     }
-
-    private static ServerCommandProcessor.PlayerState getPlayerState(UUID playerId) {
+    public static ServerCommandProcessor.PlayerState getPlayerState(UUID playerId) {
+        // ServerCommandProcessor 클래스가 이 패키지에 존재한다고 가정합니다.
         return ServerCommandProcessor.getPlayerState(playerId);
     }
-
-    private static String getCurrentPlayerPath(ServerPlayerEntity player) {
+    public static String getCurrentPlayerPath(ServerPlayerEntity player) {
         return getPlayerState(player.getUuid()).getCurrentPath();
     }
-
-    private static String getAbsolutePath(ServerPlayerEntity player, String path) {
+    public static String getAbsolutePath(ServerPlayerEntity player, String path) {
         if (path.startsWith("/")) {
             return normalizePath(path);
         }
-
         String currentPath = getCurrentPlayerPath(player);
         String base = currentPath.equals("/") ? "" : currentPath;
         return normalizePath(base + "/" + path);
-    }
-
-    private static String handleLsCommand(ServerPlayerEntity player, String path) {
-        String targetPath = path.isEmpty() ? getCurrentPlayerPath(player) : getAbsolutePath(player, path);
-
-        if (FAKE_DIRECTORIES.containsKey(targetPath)) {
-            return "Contents of " + targetPath + ":\n" + FAKE_FILESYSTEM.get(targetPath);
-        } else {
-            return "Error: Directory or path not found: " + targetPath;
-        }
-    }
-
-    private static String handleCatCommand(ServerPlayerEntity player, String path) {
-        if (path.isBlank()) {
-            return "Usage: cat <file_path>";
-        }
-
-        String targetPath = getAbsolutePath(player, path);
-
-        if (FAKE_FILESYSTEM.containsKey(targetPath)) {
-            if (FAKE_DIRECTORIES.containsKey(targetPath)) {
-                return "Error: Cannot cat a directory: " + targetPath;
-            }
-            return FAKE_FILESYSTEM.get(targetPath);
-        }
-
-        return "Error: File not found or unreadable: " + path;
-    }
-
-    private static String handleCdCommand(ServerPlayerEntity player, String argument) {
-        if (argument.isBlank()) {
-            return "Error: Usage: cd <directory_path>";
-        }
-
-        ServerCommandProcessor.PlayerState state = getPlayerState(player.getUuid());
-        String currentPath = state.getCurrentPath();
-        String targetPath;
-
-        if (argument.equals("..")) {
-            if (currentPath.equals("/")) {
-                return "Cannot move up from root directory.";
-            }
-
-            String path = currentPath;
-            int lastSlash = path.lastIndexOf('/');
-            targetPath = (lastSlash <= 0) ? "/" : path.substring(0, lastSlash);
-
-        } else {
-            targetPath = getAbsolutePath(player, argument);
-        }
-
-        targetPath = normalizePath(targetPath);
-
-        if (FAKE_DIRECTORIES.containsKey(targetPath)) {
-            state.setCurrentPath(targetPath);
-            return "Directory changed to: " + targetPath;
-        } else {
-            if (FAKE_FILESYSTEM.containsKey(targetPath)) {
-                return "Error: Cannot change directory to a file: " + argument;
-            }
-            return "Error: Directory not found: " + argument;
-        }
-    }
-
-    private static String handleDecryptCommand(String argument) {
-        if (argument.isBlank()) {
-            return "Usage: decrypt [base64_string]";
-        }
-        try {
-            byte[] decodedBytes = Base64.getDecoder().decode(argument);
-            String decodedString = new String(decodedBytes);
-            return "Decryption successful:\n" + decodedString;
-        } catch (IllegalArgumentException e) {
-            return "Error: Invalid Base64 format or corrupted data.";
-        }
-    }
-
-    private static String handleCalcCommand(String argument) {
-        if (argument.isBlank()) {
-            return "Usage: calc <num1>[+-*/]<num2>...";
-        }
-
-        String expression = argument.replaceAll("\\s+", "");
-
-        Pattern numberPattern = Pattern.compile("[-+]?\\d+(\\.\\d+)?");
-        Matcher numberMatcher = numberPattern.matcher(expression);
-
-        Pattern operatorPattern = Pattern.compile("[+\\-*/]");
-        Matcher operatorMatcher = operatorPattern.matcher(expression);
-
-        if (!numberMatcher.find()) return "Error: No numbers found in expression.";
-
-        try {
-            double result = Double.parseDouble(numberMatcher.group());
-
-            while (operatorMatcher.find() && numberMatcher.find(operatorMatcher.end())) {
-                String operator = operatorMatcher.group();
-                double nextNum = Double.parseDouble(numberMatcher.group());
-
-                switch (operator) {
-                    case "+": result += nextNum; break;
-                    case "-": result -= nextNum; break;
-                    case "*": result *= nextNum; break;
-                    case "/":
-                        if (nextNum == 0) return "Error: Division by zero.";
-                        result /= nextNum;
-                        break;
-                    default: return "Error: Unsupported operator found.";
-                }
-            }
-
-            return "Result: " + String.format("%.2f", result).replaceAll("\\.00$", "");
-
-        } catch (Exception e) {
-            return "Error: Failed to parse expression. Check format.";
-        }
-    }
-
-    private static String handleKeyCommand(ServerPlayerEntity player, String argument) {
-        if (argument.isBlank()) {
-            return "Usage: key [activation_code]";
-        }
-        UUID playerId = player.getUuid();
-        if (argument.equals(ACTIVATION_KEY)) {
-            ServerCommandProcessor.PlayerState state = getPlayerState(playerId);
-            state.setHackerActive(true);
-            state.setActivationTime(System.currentTimeMillis());
-
-            player.sendAbilitiesUpdate();
-
-            return "Key accepted. System access level upgraded to: ACTIVE.\n(You may now use the company terminal.)";
-        } else {
-            return "Key rejected. Incorrect or expired code.";
-        }
     }
 }
