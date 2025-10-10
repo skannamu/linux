@@ -1,9 +1,8 @@
-// src/main/java/com/skannamu/server/DataLoader.java (오류 수정)
+// src/main/java/com/skannamu/server/DataLoader.java
 
 package com.skannamu.server;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.skannamu.skannamuMod;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -17,23 +16,27 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 public class DataLoader implements SimpleSynchronousResourceReloadListener {
 
     private static final Identifier ID = Identifier.of(skannamuMod.MOD_ID, "data_loader");
+    // mission_data.json은 'data/skannamu/mission_data.json' 경로에 있어야 함
     private static final Identifier MISSION_DATA_ID = Identifier.of(skannamuMod.MOD_ID, "mission_data.json");
 
     public static final DataLoader INSTANCE = new DataLoader();
 
-    private @Nullable JsonElement loadedMissionData = null;
+    // ⚡️ 변경: MissionData 객체로 저장
+    private static @Nullable MissionData loadedMissionData = null;
 
     public static void registerDataLoaders() {
         ResourceManagerHelper.get(ResourceType.SERVER_DATA).registerReloadListener(INSTANCE);
         skannamuMod.LOGGER.info("Registered Data Loader for server data.");
     }
 
-    // ⚡️ 오류 수정: getFabricId() 구현 추가
+    // ⚡️ 오류 수정: getFabricId() 구현
     @Override
     public Identifier getFabricId() {
         return ID;
@@ -41,12 +44,18 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
 
     @Override
     public void reload(ResourceManager manager) {
-        this.loadedMissionData = loadMissionData(manager);
-        skannamuMod.LOGGER.info("Successfully loaded mission data.");
+        // ⚡️ 변경: MissionData 객체를 로드하도록 수정
+        loadedMissionData = loadMissionData(manager);
+        if (loadedMissionData != null) {
+            skannamuMod.LOGGER.info("Successfully loaded mission data.");
+        } else {
+            skannamuMod.LOGGER.error("Failed to load MissionData. Check logs for details.");
+        }
     }
 
-    private JsonElement loadMissionData(ResourceManager manager) {
-        // manager.findResources()는 이제 Map<Identifier, Resource>를 반환합니다.
+    private MissionData loadMissionData(ResourceManager manager) { // 반환 타입을 MissionData로 변경
+
+        // ResourcePack에서 mission_data.json 파일을 찾음 (경로: data/skannamu/mission_data.json)
         Collection<Identifier> resourceIds = manager.findResources(MISSION_DATA_ID.getPath(), path -> true)
                 .keySet();
 
@@ -58,19 +67,20 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
         Identifier resourceId = resourceIds.iterator().next();
 
         try {
-            // ⚡️ 오류 수정: getResource().orElseThrow() 대신 Optional 체인을 사용하고,
-            // try-with-resources에서 Resource 대신 InputStream을 사용하도록 구조 변경
-            Resource resource = manager.getResource(resourceId).orElseThrow(
-                    () -> new IOException("Resource not found for ID: " + resourceId)
-            );
+            Optional<Resource> resourceOptional = manager.getResource(resourceId);
+            if (resourceOptional.isEmpty()) {
+                throw new IOException("Resource not found for ID: " + resourceId);
+            }
+            Resource resource = resourceOptional.get();
 
-            // Resource.getInputStream()은 AutoCloseable이므로 try-with-resources 사용 가능
+            // Resource.getInputStream()은 AutoCloseable
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                     resource.getInputStream(),
                     StandardCharsets.UTF_8
             ))) {
                 Gson gson = new Gson();
-                return gson.fromJson(reader, JsonElement.class);
+                // ⚡️ 변경: MissionData 클래스를 사용하여 파싱
+                return gson.fromJson(reader, MissionData.class);
 
             } catch (IOException e) {
                 skannamuMod.LOGGER.error("Failed to read mission data from resource: {}", resourceId, e);
@@ -78,10 +88,36 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
         } catch (IOException e) {
             skannamuMod.LOGGER.error("Failed to get resource for mission data: {}", resourceId, e);
         }
-
-        return new Gson().fromJson("{}", JsonElement.class);
+        return null;
     }
-    public @Nullable JsonElement getMissionData() {
-        return this.loadedMissionData;
+
+    // ⚡️ 추가: ServerCommandProcessor가 사용할 통합 파일 시스템 Map을 제공하는 메서드
+    public static Map<String, String> getFilesystemData() {
+        if (loadedMissionData == null || loadedMissionData.filesystem == null) {
+            skannamuMod.LOGGER.error("Filesystem data is not available. Using error message.");
+            return Map.of("/", "Error: Filesystem data not loaded.");
+        }
+
+        // 디렉토리 구조와 파일 내용을 하나의 Map으로 통합
+        Map<String, String> combinedFilesystem = new HashMap<>();
+
+        if (loadedMissionData.filesystem.directories != null) {
+            combinedFilesystem.putAll(loadedMissionData.filesystem.directories);
+        }
+
+        // 파일 내용
+        if (loadedMissionData.filesystem.files != null) {
+            combinedFilesystem.putAll(loadedMissionData.filesystem.files);
+        }
+        return combinedFilesystem;
+    }
+
+    // ⚡️ 추가: 활성화 키를 제공하는 메서드
+    public static String getActivationKey() {
+        if (loadedMissionData == null || loadedMissionData.terminal_settings == null || loadedMissionData.terminal_settings.activation_key == null) {
+            skannamuMod.LOGGER.warn("Activation key not found in JSON. Using fallback key.");
+            return "DEFAULT_FALLBACK_KEY";
+        }
+        return loadedMissionData.terminal_settings.activation_key;
     }
 }
