@@ -33,7 +33,6 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
     modImplementation "com.google.code.gson:gson:2.10.1"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:0.133.4+1.21.8"
 
 }
 

@@ -1,6 +1,12 @@
 package com.skannamu.server;
 
 import com.skannamu.server.command.*; // ICommand와 모든 명령어 클래스 임포트
+// Fabric 명령어 등록을 위한 임포트 추가
+import com.mojang.brigadier.CommandDispatcher;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.command.CommandRegistryAccess;
+
 import net.minecraft.server.network.ServerPlayerEntity;
 import java.util.*;
 
@@ -21,6 +27,7 @@ public class TerminalCommands {
         registerCommand(new CalcCommand());
         registerCommand(new KeyCommand());
         registerCommand(new PwdCommand());
+        registerCommand(new ExploitCommand());
     }
 
     public static void registerCommand(ICommand command) {
@@ -90,6 +97,10 @@ public class TerminalCommands {
         }
         return command.execute(player, options, remainingArgument);
     }
+
+    public static void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
+    }
+
     public static String normalizePath(String path) {
         if (path.isEmpty()) return "/";
         String normalized = path.replaceAll("//+", "/");
