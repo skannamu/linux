@@ -52,7 +52,6 @@ public class skannamuModClient implements ClientModInitializer {
                 ClientExploitManager.clientTick(client);
             }
         });
-
         ClientPlayNetworking.registerGlobalReceiver(TerminalOutputPayload.ID,
                 (TerminalOutputPayload payload, ClientPlayNetworking.Context context) -> {
                     String output = payload.output();
