@@ -10,7 +10,7 @@ import com.skannamu.server.DataLoader;
 import com.skannamu.server.MissionData;
 import com.skannamu.server.ServerCommandProcessor;
 import com.skannamu.server.ExploitScheduler;
-import com.skannamu.server.TerminalCommands;
+import com.skannamu.server.TerminalCommands; // 임포트 확인
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -39,7 +39,8 @@ public class skannamuMod implements ModInitializer {
         LOGGER.info("[skannamuMod] Initializing...");
 
         BlockInitialization.initializeBlocks();
-        ModItems.initializeItems();
+        ModItems.initializeItems(); // 1. 아이템 등록 완료
+        TerminalCommands.initializeCommands(); // 2. 명령어 등록 (아이템 참조 안전)
 
         PORTABLE_TERMINAL = ModItems.PORTABLE_TERMINAL;
         STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));

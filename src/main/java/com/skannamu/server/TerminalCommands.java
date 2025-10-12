@@ -1,12 +1,10 @@
 package com.skannamu.server;
 
 import com.skannamu.server.command.*; // ICommand와 모든 명령어 클래스 임포트
-// Fabric 명령어 등록을 위한 임포트 추가
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.command.CommandRegistryAccess;
-
 import net.minecraft.server.network.ServerPlayerEntity;
 import java.util.*;
 
@@ -18,7 +16,10 @@ public class TerminalCommands {
 
     private static final Map<String, ICommand> COMMAND_REGISTRY = new HashMap<>();
 
-    static {
+    // 💡 새로운 메서드: 아이템 등록 후 이 메서드를 호출하여 명령어들을 안전하게 등록합니다.
+    public static void initializeCommands() {
+        if (!COMMAND_REGISTRY.isEmpty()) return; // 중복 초기화 방지
+
         // 모든 명령어 인스턴스 등록
         registerCommand(new LsCommand());
         registerCommand(new CatCommand());
@@ -76,7 +77,7 @@ public class TerminalCommands {
         String rawArgument = argument.trim();
 
         String[] parts = rawArgument.split("\\s+");
-        StringBuilder argBuilder = new StringBuilder(); // 순수 인수를 모을 빌더
+        StringBuilder argBuilder = new StringBuilder();
 
         for (String part : parts) {
             if (part.startsWith("-") && part.length() > 1) {
@@ -85,7 +86,6 @@ public class TerminalCommands {
                     options.add(String.valueOf(optionChar));
                 }
             } else if (!part.isBlank()) {
-                // 옵션이 아닌 나머지 부분 (순수 인수)만 다시 모읍니다.
                 if (argBuilder.length() > 0) argBuilder.append(" ");
                 argBuilder.append(part);
             }
@@ -93,7 +93,7 @@ public class TerminalCommands {
         String remainingArgument = argBuilder.toString().trim();
 
         if (options.contains("h")) {
-            return command.getUsage(); // 여기서 즉시 반환하여 execute 호출을 방지합니다.
+            return command.getUsage();
         }
         return command.execute(player, options, remainingArgument);
     }
@@ -113,7 +113,6 @@ public class TerminalCommands {
         return normalized.isEmpty() ? "/" : normalized;
     }
     public static ServerCommandProcessor.PlayerState getPlayerState(UUID playerId) {
-        // ServerCommandProcessor 클래스가 이 패키지에 존재한다고 가정합니다.
         return ServerCommandProcessor.getPlayerState(playerId);
     }
     public static String getCurrentPlayerPath(ServerPlayerEntity player) {
