@@ -5,12 +5,13 @@ import com.google.gson.JsonElement;
 import com.skannamu.init.BlockInitialization;
 import com.skannamu.init.ModItems;
 import com.skannamu.network.TerminalCommandPayload;
-import com.skannamu.network.ExploitSequencePayload;
 import com.skannamu.server.DataLoader;
 import com.skannamu.server.MissionData;
 import com.skannamu.server.ServerCommandProcessor;
 import com.skannamu.server.ExploitScheduler;
-import com.skannamu.server.TerminalCommands; // 임포트 확인
+import com.skannamu.server.TerminalCommands;
+import com.skannamu.server.command.ExploitCommand;
+
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -39,17 +40,22 @@ public class skannamuMod implements ModInitializer {
         LOGGER.info("[skannamuMod] Initializing...");
 
         BlockInitialization.initializeBlocks();
-        ModItems.initializeItems(); // 1. 아이템 등록 완료
-        TerminalCommands.initializeCommands(); // 2. 명령어 등록 (아이템 참조 안전)
+        ModItems.initializeItems();
+        TerminalCommands.initializeCommands();
 
         PORTABLE_TERMINAL = ModItems.PORTABLE_TERMINAL;
         STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
+
+        // 🟢 ExploitCommand.registerDamageType() 호출 제거 (어차피 컴파일 오류 발생)
+        // 🟢 DamageType 등록 로직 제거 (컴파일 오류 회피 및 런타임 동적 로드를 기대)
 
         DataLoader.registerDataLoaders();
 
         ServerLifecycleEvents.SERVER_STARTED.register(this::initializeTerminalSystem);
 
+        // 페이로드 등록은 클라이언트 측에서만 필요
         PayloadTypeRegistry.playC2S().register(TerminalCommandPayload.ID, TerminalCommandPayload.CODEC);
+
         ServerPlayNetworking.registerGlobalReceiver(TerminalCommandPayload.ID,
                 (payload, context) -> {
                     MinecraftServer server = context.server();

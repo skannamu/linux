@@ -20,7 +20,6 @@
   },
 
   "mixins": [
-    "skannamu.mixins.json"
   ],
 
   "depends": {
