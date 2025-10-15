@@ -1,8 +1,8 @@
 package com.skannamu.init;
 
 import com.skannamu.module.BinaryModuleItem;
-import com.skannamu.skannamuMod;
 import com.skannamu.item.tool.PortableTerminalItem;
+import com.skannamu.skannamuMod;
 import net.minecraft.item.Item;
 import com.skannamu.item.weapon.NanoBladeItem;
 import net.minecraft.registry.Registries;

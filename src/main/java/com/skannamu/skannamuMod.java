@@ -11,7 +11,6 @@ import com.skannamu.server.ServerCommandProcessor;
 import com.skannamu.server.ExploitScheduler;
 import com.skannamu.server.TerminalCommands;
 import com.skannamu.server.command.ExploitCommand;
-
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -42,18 +41,17 @@ public class skannamuMod implements ModInitializer {
         BlockInitialization.initializeBlocks();
         ModItems.initializeItems();
         TerminalCommands.initializeCommands();
+        ExploitCommand.registerDamageType(); // 로그 출력 용도
 
         PORTABLE_TERMINAL = ModItems.PORTABLE_TERMINAL;
         STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
 
-        // 🟢 ExploitCommand.registerDamageType() 호출 제거 (어차피 컴파일 오류 발생)
-        // 🟢 DamageType 등록 로직 제거 (컴파일 오류 회피 및 런타임 동적 로드를 기대)
+        // DamageType 수동 등록 코드를 제거했습니다. (JSON 데이터 팩 사용)
 
         DataLoader.registerDataLoaders();
 
         ServerLifecycleEvents.SERVER_STARTED.register(this::initializeTerminalSystem);
 
-        // 페이로드 등록은 클라이언트 측에서만 필요
         PayloadTypeRegistry.playC2S().register(TerminalCommandPayload.ID, TerminalCommandPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(TerminalCommandPayload.ID,
@@ -64,8 +62,7 @@ public class skannamuMod implements ModInitializer {
                     server.execute(() -> ServerCommandProcessor.processCommand(player, command));
                 });
 
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
-                TerminalCommands.registerCommands(dispatcher, registryAccess, environment));
+        CommandRegistrationCallback.EVENT.register(TerminalCommands::registerCommands);
 
         ServerTickEvents.END_SERVER_TICK.register(new ExploitScheduler());
 
