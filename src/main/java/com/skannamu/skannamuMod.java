@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.skannamu.init.BlockInitialization;
 import com.skannamu.init.ModItems;
+import com.skannamu.network.ExploitSequencePayload;
+import com.skannamu.network.TerminalOutputPayload;
 import com.skannamu.network.TerminalCommandPayload;
 import com.skannamu.server.DataLoader;
 import com.skannamu.server.MissionData;
@@ -38,36 +40,40 @@ public class skannamuMod implements ModInitializer {
     public void onInitialize() {
         LOGGER.info("[skannamuMod] Initializing...");
 
+        // S2C 패킷 타입 등록 (한 번만 수행)
+        PayloadTypeRegistry.playS2C().register(ExploitSequencePayload.ID, ExploitSequencePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(TerminalOutputPayload.ID, TerminalOutputPayload.CODEC);
+
         BlockInitialization.initializeBlocks();
         ModItems.initializeItems();
         TerminalCommands.initializeCommands();
-        ExploitCommand.registerDamageType(); // 로그 출력 용도
+        ExploitCommand.registerDamageType();
 
         PORTABLE_TERMINAL = ModItems.PORTABLE_TERMINAL;
         STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
 
-        // DamageType 수동 등록 코드를 제거했습니다. (JSON 데이터 팩 사용)
-
         DataLoader.registerDataLoaders();
-
         ServerLifecycleEvents.SERVER_STARTED.register(this::initializeTerminalSystem);
-
-        PayloadTypeRegistry.playC2S().register(TerminalCommandPayload.ID, TerminalCommandPayload.CODEC);
-
-        ServerPlayNetworking.registerGlobalReceiver(TerminalCommandPayload.ID,
-                (payload, context) -> {
-                    MinecraftServer server = context.server();
-                    ServerPlayerEntity player = context.player();
-                    String command = payload.command();
-                    server.execute(() -> ServerCommandProcessor.processCommand(player, command));
-                });
+        ServerLifecycleEvents.SERVER_STARTED.register(this::initializeServerNetworking);
 
         CommandRegistrationCallback.EVENT.register(TerminalCommands::registerCommands);
 
         ServerTickEvents.END_SERVER_TICK.register(new ExploitScheduler());
 
-
         LOGGER.info("[skannamuMod] Initialized successfully! (Exploit features enabled)");
+    }
+
+    private void initializeServerNetworking(MinecraftServer server) {
+        // 핸들러 등록 (C2S 수신용)
+        ServerPlayNetworking.registerGlobalReceiver(TerminalCommandPayload.ID,
+                (payload, context) -> {
+                    MinecraftServer serverInstance = context.server();
+                    if (serverInstance != null) {
+                        ServerPlayerEntity player = context.player();
+                        String command = payload.command();
+                        serverInstance.execute(() -> ServerCommandProcessor.processCommand(player, command));
+                    }
+                });
     }
 
     private void initializeTerminalSystem(MinecraftServer server) {
