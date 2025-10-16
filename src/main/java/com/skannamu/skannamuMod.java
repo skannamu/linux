@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.skannamu.init.BlockInitialization;
 import com.skannamu.init.ModItems;
 import com.skannamu.network.ExploitSequencePayload;
+import com.skannamu.network.ExploitTriggerPayload;
 import com.skannamu.network.TerminalOutputPayload;
 import com.skannamu.network.TerminalCommandPayload;
 import com.skannamu.server.DataLoader;
@@ -40,40 +41,53 @@ public class skannamuMod implements ModInitializer {
     public void onInitialize() {
         LOGGER.info("[skannamuMod] Initializing...");
 
-        // S2C 패킷 타입 등록 (한 번만 수행)
+        // 1. Payload Type Registrations (모든 패킷 타입을 여기서 등록합니다)
+
+        // S2C (Server to Client)
         PayloadTypeRegistry.playS2C().register(ExploitSequencePayload.ID, ExploitSequencePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TerminalOutputPayload.ID, TerminalOutputPayload.CODEC);
 
-        BlockInitialization.initializeBlocks();
-        ModItems.initializeItems();
-        TerminalCommands.initializeCommands();
-        ExploitCommand.registerDamageType();
+        // C2S (Client to Server)
+        PayloadTypeRegistry.playC2S().register(TerminalCommandPayload.ID, TerminalCommandPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(ExploitTriggerPayload.ID, ExploitTriggerPayload.CODEC);
 
-        PORTABLE_TERMINAL = ModItems.PORTABLE_TERMINAL;
-        STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
+        // 2. C2S Network Handler Registrations
 
-        DataLoader.registerDataLoaders();
-        ServerLifecycleEvents.SERVER_STARTED.register(this::initializeTerminalSystem);
-        ServerLifecycleEvents.SERVER_STARTED.register(this::initializeServerNetworking);
-
-        CommandRegistrationCallback.EVENT.register(TerminalCommands::registerCommands);
-
-        ServerTickEvents.END_SERVER_TICK.register(new ExploitScheduler());
-
-        LOGGER.info("[skannamuMod] Initialized successfully! (Exploit features enabled)");
-    }
-
-    private void initializeServerNetworking(MinecraftServer server) {
-        // 핸들러 등록 (C2S 수신용)
+        // TerminalCommandPayload 수신 핸들러 등록
         ServerPlayNetworking.registerGlobalReceiver(TerminalCommandPayload.ID,
                 (payload, context) -> {
                     MinecraftServer serverInstance = context.server();
                     if (serverInstance != null) {
                         ServerPlayerEntity player = context.player();
                         String command = payload.command();
+                        // 서버 메인 스레드에서 명령어 처리 실행
                         serverInstance.execute(() -> ServerCommandProcessor.processCommand(player, command));
                     }
                 });
+
+        // ExploitTriggerPayload 수신 핸들러 등록 (ExploitScheduler 내부의 핸들러 등록 함수 호출)
+        // ExploitScheduler.registerHandlers()는 이제 타입 등록 없이 핸들러만 등록합니다.
+        ExploitScheduler.registerHandlers();
+
+        // 3. Mod Initializations
+        BlockInitialization.initializeBlocks();
+        ModItems.initializeItems();
+        TerminalCommands.initializeCommands();
+        ExploitCommand.registerDamageType();
+
+
+        PORTABLE_TERMINAL = ModItems.PORTABLE_TERMINAL;
+        STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
+
+        DataLoader.registerDataLoaders();
+
+        ServerLifecycleEvents.SERVER_STARTED.register(this::initializeTerminalSystem);
+
+        CommandRegistrationCallback.EVENT.register(TerminalCommands::registerCommands);
+
+        ServerTickEvents.END_SERVER_TICK.register(new ExploitScheduler());
+
+        LOGGER.info("[skannamuMod] Initialized successfully! (Exploit features enabled)");
     }
 
     private void initializeTerminalSystem(MinecraftServer server) {
