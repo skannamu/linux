@@ -26,7 +26,6 @@ public class BinaryModuleItem extends Item {
             ServerCommandProcessor.PlayerState state = TerminalCommands.getPlayerState(player.getUuid());
 
             if (state.isCommandAvailable(commandToUnlock)) {
-                // 이미 모듈이 설치된 경우
                 player.sendMessage(Text.literal(
                         "[" + commandToUnlock.toUpperCase() + " Module] Error: This module is already installed."), false);
                 return ActionResult.FAIL; // 실패 시 ActionResult.FAIL 반환

@@ -1,5 +1,3 @@
-// src/main/java/com/skannamu/server/DataLoader.java (오류 수정)
-
 package com.skannamu.server;
 
 import com.google.gson.Gson;

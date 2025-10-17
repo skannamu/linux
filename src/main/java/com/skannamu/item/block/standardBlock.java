@@ -22,7 +22,6 @@ public class standardBlock extends Block {
     @Override
     protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
         if (world.isClient) {
-            // 클라이언트 측 로직: 로컬 상태 확인 후 UI 열기
             if (skannamuModClient.isPlayerActive) {
                 MinecraftClient.getInstance().setScreen(new UrlInputScreen());
                 return ActionResult.SUCCESS;
