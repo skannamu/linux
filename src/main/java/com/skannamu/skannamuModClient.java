@@ -21,7 +21,9 @@ public class skannamuModClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         skannamuMod.LOGGER.info("skannamuMod Client initialized!");
-        PayloadTypeRegistry.playC2S().register(ModuleActivationPayload.ID, ModuleActivationPayload.CODEC);
+
+        // ModuleActivationPayload 등록 제거 (서버에서 처리)
+        // PayloadTypeRegistry.playC2S().register(ModuleActivationPayload.ID, ModuleActivationPayload.CODEC); // 주석 처리 또는 삭제
 
         ClientPlayNetworking.registerGlobalReceiver(ExploitSequencePayload.ID, (payload, context) -> {
             MinecraftClient client = context.client();
