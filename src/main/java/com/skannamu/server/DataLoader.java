@@ -2,6 +2,7 @@ package com.skannamu.server;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.google.gson.reflect.TypeToken;
 import com.skannamu.skannamuMod;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -10,9 +11,11 @@ import net.minecraft.resource.ResourceManager;
 import net.minecraft.resource.ResourceType;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 
@@ -23,15 +26,13 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
     private static final Identifier MISSION_DATA_ID = Identifier.of(skannamuMod.MOD_ID, "mission_data.json");
 
     public static final DataLoader INSTANCE = new DataLoader();
-
-    private @Nullable JsonElement loadedMissionData = null;
+    private @Nullable MissionData loadedMissionDataInstance = null;
 
     public static void registerDataLoaders() {
         ResourceManagerHelper.get(ResourceType.SERVER_DATA).registerReloadListener(INSTANCE);
         skannamuMod.LOGGER.info("Registered Data Loader for server data.");
     }
 
-    // ⚡️ 오류 수정: getFabricId() 구현 추가
     @Override
     public Identifier getFabricId() {
         return ID;
@@ -39,12 +40,32 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
 
     @Override
     public void reload(ResourceManager manager) {
-        this.loadedMissionData = loadMissionData(manager);
-        skannamuMod.LOGGER.info("Successfully loaded mission data.");
+        JsonElement jsonElement = loadMissionDataJson(manager);
+        if (jsonElement != null && !jsonElement.isJsonNull()) {
+            Gson gson = new Gson();
+            Type missionDataType = new TypeToken<MissionData>(){}.getType();
+            try {
+                // 1. MissionData 객체 로드
+                this.loadedMissionDataInstance = gson.fromJson(jsonElement, missionDataType);
+                skannamuMod.LOGGER.info("Successfully parsed MissionData object.");
+
+                // 2. 터미널 명령어 시스템 초기화
+                TerminalCommands.setFilesystemService(this.loadedMissionDataInstance);
+
+            } catch (Exception e) {
+                skannamuMod.LOGGER.error("Failed to deserialize MissionData:", e);
+                this.loadedMissionDataInstance = null;
+                TerminalCommands.setFilesystemService(null);
+            }
+        } else {
+            this.loadedMissionDataInstance = null;
+            TerminalCommands.setFilesystemService(null);
+        }
+
+        skannamuMod.LOGGER.info("Completed mission data loading and terminal initialization.");
     }
 
-    private JsonElement loadMissionData(ResourceManager manager) {
-        // manager.findResources()는 이제 Map<Identifier, Resource>를 반환합니다.
+    private JsonElement loadMissionDataJson(ResourceManager manager) {
         Collection<Identifier> resourceIds = manager.findResources(MISSION_DATA_ID.getPath(), path -> true)
                 .keySet();
 
@@ -53,6 +74,7 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
             return null;
         }
 
+        // 데이터 팩 병합을 처리하기 위해 첫 번째 리소스를 사용합니다.
         Identifier resourceId = resourceIds.iterator().next();
 
         try {
@@ -60,7 +82,6 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
                     () -> new IOException("Resource not found for ID: " + resourceId)
             );
 
-            // Resource.getInputStream()은 AutoCloseable이므로 try-with-resources 사용 가능
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                     resource.getInputStream(),
                     StandardCharsets.UTF_8
@@ -75,9 +96,16 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
             skannamuMod.LOGGER.error("Failed to get resource for mission data: {}", resourceId, e);
         }
 
-        return new Gson().fromJson("{}", JsonElement.class);
+        return null;
     }
-    public @Nullable JsonElement getMissionData() {
-        return this.loadedMissionData;
+
+    public @Nullable MissionData getMissionDataInstance() {
+        return this.loadedMissionDataInstance;
+    }
+    public @Nullable MissionData.VaultSettings getVaultSettings() {
+        if (this.loadedMissionDataInstance != null && this.loadedMissionDataInstance.vault_settings != null) {
+            return this.loadedMissionDataInstance.vault_settings;
+        }
+        return null;
     }
 }

@@ -16,6 +16,8 @@ public class ModItems {
     public static Item CAT_MODULE;
     public static Item DECRYPT_MODULE;
     public static Item KEY_MODULE;
+    // 💡 ECHO_MODULE 필드 추가
+    public static Item ECHO_MODULE;
     public static Item PORTABLE_TERMINAL;
     // Exploit 계열
     public static Item NANO_BLADE;
@@ -79,6 +81,9 @@ public class ModItems {
         CAT_MODULE = registerBinaryModule("cat_module", "cat");
         DECRYPT_MODULE = registerBinaryModule("decrypt_module", "decrypt");
         KEY_MODULE = registerBinaryModule("key_module", "key");
+
+        ECHO_MODULE = registerBinaryModule("echo_module", "echo");
+
         PORTABLE_TERMINAL = registerPortableTerminal("portable_terminal");
 
         NANO_BLADE = registerSimpleItem("nano_blade");
@@ -86,6 +91,5 @@ public class ModItems {
 
         EMP_MODULE = registerAuxiliaryModule("emp_module");
         EMP_IFF_MODULE = registerSimpleItem("emp_iff_module");
-
     }
 }

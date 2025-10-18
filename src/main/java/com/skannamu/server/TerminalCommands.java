@@ -2,7 +2,7 @@ package com.skannamu.server;
 
 import com.skannamu.server.command.*;
 import com.skannamu.network.HackedStatusPayload;
-import com.skannamu.init.ModItems; // 💡 ModItems 임포트
+import com.skannamu.init.ModItems;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
@@ -22,7 +22,7 @@ public class TerminalCommands {
     public static Map<String, String> FAKE_FILESYSTEM = null;
     public static Map<String, String> FAKE_DIRECTORIES = null;
     public static String ACTIVATION_KEY = null;
-
+    private static FilesystemService FILE_SERVICE = null;
     private static final Map<String, ICommand> COMMAND_REGISTRY = new HashMap<>();
 
     public static void initializeCommands() {
@@ -37,6 +37,24 @@ public class TerminalCommands {
         registerCommand(new PwdCommand());
         registerCommand(new ExploitCommand());
         registerCommand(new AuxiliaryCommand());
+        registerCommand(new EchoCommand());
+    }
+
+    public static void setFilesystemService(MissionData missionData){
+        if(missionData != null){
+            FILE_SERVICE = new FilesystemService(missionData);
+
+            // 💡 핵심 수정: FAKE_FILESYSTEM과 FAKE_DIRECTORIES가 MissionData의 맵을 직접 참조하도록 설정
+            FAKE_FILESYSTEM = missionData.filesystem.files;
+            FAKE_DIRECTORIES = missionData.filesystem.directories;
+
+            setActivationKey(missionData.terminal_settings.activation_key);
+        }
+        else {}
+    }
+
+    public static FilesystemService getFileService(){
+        return FILE_SERVICE;
     }
 
     public static void registerCommand(ICommand command) {
@@ -47,9 +65,11 @@ public class TerminalCommands {
         return COMMAND_REGISTRY.keySet();
     }
 
+    // 💡 주의: 이 메서드는 이제 FAKE_FILESYSTEM을 직접 할당하지 않고,
+    // FAKE_FILESYSTEM이 null일 때 초기 에러 메시지를 설정하는 안전 장치 역할만 합니다.
     public static void setFilesystem(Map<String, String> allFiles, Map<String, String> directoriesOnly) {
-        FAKE_FILESYSTEM = allFiles;
-        FAKE_DIRECTORIES = directoriesOnly;
+        // 이전에 FAKE_FILESYSTEM = allFiles; 이 있었으나, setFilesystemService에서
+        // missionData의 맵을 직접 할당하는 방식으로 변경되었으므로 이 부분은 필요 없어졌습니다.
 
         if (FAKE_FILESYSTEM == null || FAKE_DIRECTORIES == null) {
             FAKE_FILESYSTEM = new HashMap<>();
@@ -79,7 +99,7 @@ public class TerminalCommands {
         if (FAKE_FILESYSTEM == null || FAKE_DIRECTORIES == null) {
             return "Error: Terminal system data is not initialized. Please notify the administrator.";
         }
-
+        // ... (나머지 handleCommand 메서드 내용 생략) ...
         String lowerCommand = commandName.toLowerCase();
         ICommand command = COMMAND_REGISTRY.get(lowerCommand);
 

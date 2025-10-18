@@ -1,10 +1,9 @@
 package com.skannamu;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
+import com.google.gson.JsonElement; // 사용되지 않음
 import com.skannamu.init.BlockInitialization;
 import com.skannamu.init.ModItems;
-// HackedStatusPayload import 추가
 import com.skannamu.network.HackedStatusPayload;
 import com.skannamu.network.ExploitSequencePayload;
 import com.skannamu.network.ExploitTriggerPayload;
@@ -82,14 +81,23 @@ public class skannamuMod implements ModInitializer {
         STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
 
         DataLoader.registerDataLoaders();
-        ServerLifecycleEvents.SERVER_STARTED.register(this::initializeTerminalSystem);
+
+        // 💡 기존 initializeTerminalSystem 호출을 제거하거나, 비워둡니다.
+        // 데이터 로딩 및 TerminalCommands 초기화는 DataLoader.reload()에서 이미 수행됩니다.
+        // ServerLifecycleEvents.SERVER_STARTED.register(this::initializeTerminalSystem); // 제거
+
         CommandRegistrationCallback.EVENT.register(TerminalCommands::registerCommands);
         ServerTickEvents.END_SERVER_TICK.register(new ExploitScheduler());
         LOGGER.info("[skannamuMod] Initializing complete.");
     }
 
+    /**
+     * 💡 MissionData 초기화 로직은 DataLoader.reload()로 이동했으므로,
+     * 이 메서드는 더 이상 필요하지 않습니다. 주석 처리하거나 제거합니다.
+     */
+    /*
     private void initializeTerminalSystem(MinecraftServer server) {
-        JsonElement jsonElement = DataLoader.INSTANCE.getMissionData();
+        JsonElement jsonElement = DataLoader.INSTANCE.getMissionData(); // 이 부분이 오류를 일으킴
 
         if (jsonElement == null || !jsonElement.isJsonObject()) {
             LOGGER.error("[skannamuMod] Failed to load mission_data.json. Using defaults.");
@@ -120,4 +128,5 @@ public class skannamuMod implements ModInitializer {
 
         LOGGER.info("[skannamuMod] Terminal FAKE_FILESYSTEM and ACTIVATION_KEY initialized from JSON.");
     }
+    */
 }

@@ -13,5 +13,15 @@
       "/logs/archive.log": "System Log Snapshot:\nAccess attempt failed from external IP 203.245.1.1. Data payload was: U2tyS3IzQG1zU2sycmV0" ,
       "/logs/encrypted_message.dat": "Encrypted Key (Base64):\nU2F2ZV90aGVfUGVhY2U="
     }
+  },
+
+  "teleport_locations": {
+    "Archive_Server": [100.5, 64.0, 50.5],
+    "Main_Vault": [-250.0, 70.0, 1000.0]
+  },
+
+  "vault_settings": {
+    "correct_sequence": [47, 82, 11],
+    "max_dial_value": 99
   }
 }

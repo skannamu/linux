@@ -25,8 +25,26 @@ public class LsCommand implements ICommand {
         targetPath = TerminalCommands.normalizePath(targetPath);
 
         if (TerminalCommands.FAKE_DIRECTORIES.containsKey(targetPath)) {
-            String contents = TerminalCommands.FAKE_FILESYSTEM.get(targetPath);
-            return "Contents of " + targetPath + ":\n" + (contents != null ? contents : "Empty directory.");
+
+            String contentsString = TerminalCommands.FAKE_DIRECTORIES.get(targetPath);
+
+            StringBuilder output = new StringBuilder();
+            output.append("Contents of ").append(targetPath).append(":\n");
+
+            if (contentsString == null || contentsString.isBlank()) {
+                return output.append("Empty directory.").toString();
+            }
+
+            String[] contents = contentsString.split("[\\s\\n]+");
+
+            for (String item : contents) {
+                if (!item.isBlank()) {
+                    output.append("  ").append(item).append("\n");
+                }
+            }
+
+            return output.toString().trim();
+
         } else {
             if (TerminalCommands.FAKE_FILESYSTEM.containsKey(targetPath)) {
                 return "Error: '" + targetPath + "' is a file, not a directory.";
