@@ -9,19 +9,18 @@
     },
     "files": {
       "/ip_port.txt": "Target URL requires manual entry: 192.168.1.13:8080. (Use the computer block after activation).",
-      "/help.txt": "SKN Terminal Manual:\n  - ls: List files in the current directory.\n  - cat <file>: Display file contents.\n  - calc <expression>: Perform simple arithmetic (e.g., calc 10*5+3).\n  - decrypt <base64>: Decode base64 strings.\n  - key <code>: Activate the company terminal.",
+      "/help.txt": "SKN Terminal Manual:\n  - ls: List files in the current directory.\n  - cat <file>: Display file contents.\n  - calc <expression>: Perform simple arithmetic (e.g., calc 10*5+3).\n  - key <code>: Activate the company terminal.",
       "/logs/archive.log": "System Log Snapshot:\nAccess attempt failed from external IP 203.245.1.1. Data payload was: U2tyS3IzQG1zU2sycmV0" ,
       "/logs/encrypted_message.dat": "Encrypted Key (Base64):\nU2F2ZV90aGVfUGVhY2U="
     }
   },
 
   "teleport_locations": {
-    "Archive_Server": [100.5, 64.0, 50.5],
-    "Main_Vault": [-250.0, 70.0, 1000.0]
+    "Archive_Server": [100.5, 64.0, 50.5]
   },
 
   "vault_settings": {
-    "correct_sequence": [47, 82, 11],
+    "correct_values": [21, 88, 45],
     "max_dial_value": 99
   }
 }

@@ -45,11 +45,10 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
             Gson gson = new Gson();
             Type missionDataType = new TypeToken<MissionData>(){}.getType();
             try {
-                // 1. MissionData 객체 로드
                 this.loadedMissionDataInstance = gson.fromJson(jsonElement, missionDataType);
                 skannamuMod.LOGGER.info("Successfully parsed MissionData object.");
 
-                // 2. 터미널 명령어 시스템 초기화
+                // 터미널 명령어 시스템 초기화
                 TerminalCommands.setFilesystemService(this.loadedMissionDataInstance);
 
             } catch (Exception e) {
@@ -74,7 +73,6 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
             return null;
         }
 
-        // 데이터 팩 병합을 처리하기 위해 첫 번째 리소스를 사용합니다.
         Identifier resourceId = resourceIds.iterator().next();
 
         try {
@@ -102,6 +100,8 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
     public @Nullable MissionData getMissionDataInstance() {
         return this.loadedMissionDataInstance;
     }
+
+    // 💡 VaultBlock이 사용할 금고 설정을 제공
     public @Nullable MissionData.VaultSettings getVaultSettings() {
         if (this.loadedMissionDataInstance != null && this.loadedMissionDataInstance.vault_settings != null) {
             return this.loadedMissionDataInstance.vault_settings;
