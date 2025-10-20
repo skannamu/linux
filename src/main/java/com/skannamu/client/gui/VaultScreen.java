@@ -6,9 +6,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.PacketByteBuf;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 
@@ -60,7 +60,6 @@ public class VaultScreen extends Screen {
             this.addDrawableChild(slider);
         }
 
-        // 💡 정답 입력 버튼
         submitButton = ButtonWidget.builder(
                         Text.literal("정답 입력"),
                         button -> handleSubmit())
@@ -68,7 +67,6 @@ public class VaultScreen extends Screen {
                 .build();
         this.addDrawableChild(submitButton);
 
-        // 닫기 버튼
         closeButton = ButtonWidget.builder(
                         Text.literal("닫기"),
                         button -> this.client.setScreen(null))
@@ -78,7 +76,6 @@ public class VaultScreen extends Screen {
     }
 
     private void initInventoryMode() {
-        // 닫기 버튼만 재배치
         closeButton = ButtonWidget.builder(
                         Text.literal("닫기"),
                         button -> this.client.setScreen(null))
@@ -87,24 +84,29 @@ public class VaultScreen extends Screen {
         this.addDrawableChild(closeButton);
     }
 
-    // 💡 정답 입력 버튼 클릭 시 서버로 정답 대조 요청 패킷 전송
     private void handleSubmit() {
         BlockPos pos = blockEntity.getPos();
-
-        // 서버로 SLIDER_SUBMIT_ID 패킷 전송
-        PacketByteBuf buf = ClientPlayNetworking.createPacket(VaultSliderPayload.SLIDER_SUBMIT_ID, buffer -> {
-            buffer.writeBlockPos(pos);
-        });
-        ClientPlayNetworking.send(buf);
-
-        // UI를 다시 초기화하여 서버의 상태 변화(isVaultCorrect)를 확인하고 화면을 전환합니다.
-        this.init();
+        // ✅ 서버로 제출 패킷 전송 (sliderIndex == -1 → submit 모드)
+        ClientPlayNetworking.send(new VaultSliderPayload(pos, -1, 0));
     }
-
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context, mouseX, mouseY, delta);
+        boolean hasInventoryButton = this.children().stream()
+                .filter(e -> e instanceof ClickableWidget)
+                .map(e -> (ClickableWidget) e)
+                .anyMatch(w -> w.getMessage().getString().equals("닫기") && w.getHeight() == 20);
+
+        boolean hasSliderButton = this.children().stream()
+                .filter(e -> e instanceof ClickableWidget)
+                .map(e -> (ClickableWidget) e)
+                .anyMatch(w -> w.getMessage().getString().equals("정답 입력"));
+
+        if (blockEntity.isVaultCorrect() && !hasInventoryButton) {
+            this.init(); // 금고 열림 상태면 인벤토리 모드로 전환
+        } else if (!blockEntity.isVaultCorrect() && !hasSliderButton) {
+            this.init(); // 닫힌 상태면 다이얼 모드로 전환
+        }
 
         if (blockEntity.isVaultCorrect()) {
             renderInventoryMode(context);
@@ -122,16 +124,13 @@ public class VaultScreen extends Screen {
     private void renderInventoryMode(DrawContext context) {
         context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("§a[ACCESS GRANTED] Vault Unlocked!"), this.width / 2, 8, 0x00FF00);
 
-        // 3x3 인벤토리 칸 배경 렌더링
         int size = 9;
         int slotSize = 18;
         int gridWidth = 3 * slotSize;
         int gridHeight = 3 * slotSize;
 
-        // 인벤토리 배경 박스
         context.fill(inventoryX, inventoryY, inventoryX + gridWidth, inventoryY + gridHeight, 0xFF444444);
 
-        // 아이템 슬롯 및 아이템 렌더링
         for (int i = 0; i < size; i++) {
             int row = i / 3;
             int col = i % 3;
@@ -143,14 +142,19 @@ public class VaultScreen extends Screen {
 
             ItemStack stack = blockEntity.getInventory().get(i);
             context.drawItem(stack, x + 1, y + 1);
-            context.drawItemInSlot(this.textRenderer, stack, x + 1, y + 1);
+
+            if (!stack.isEmpty() && stack.getCount() > 1) {
+                String count = String.valueOf(stack.getCount());
+                context.drawText(this.textRenderer, count, x + 17 - this.textRenderer.getWidth(count), y + 9, 0xFFFFFF, true);
+            }
         }
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean shouldPause() {
+        return false;
+    }
 
-    // --- 커스텀 슬라이더 클래스 (유지) ---
     private class VaultSlider extends SliderWidget {
         private final int sliderIndex;
         private final BlockPos blockPos;
@@ -171,13 +175,7 @@ public class VaultScreen extends Screen {
         @Override
         protected void applyValue() {
             int value = (int) Math.round(this.value * 99);
-
-            PacketByteBuf buf = ClientPlayNetworking.createPacket(VaultSliderPayload.SLIDER_UPDATE_ID, buffer -> {
-                buffer.writeBlockPos(this.blockPos);
-                buffer.writeInt(this.sliderIndex);
-                buffer.writeInt(value);
-            });
-            ClientPlayNetworking.send(buf);
+            ClientPlayNetworking.send(new VaultSliderPayload(blockPos, sliderIndex, value));
         }
     }
 }

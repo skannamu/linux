@@ -15,7 +15,11 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.world.World;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class TerminalCommands {
 
@@ -25,9 +29,13 @@ public class TerminalCommands {
     private static FilesystemService FILE_SERVICE = null;
     private static final Map<String, ICommand> COMMAND_REGISTRY = new HashMap<>();
 
+    // 💡 내부 명령어 목록을 정의하여 외부 쉘 명령어와 분리합니다.
+    private static final Set<String> INTERNAL_COMMANDS = new HashSet<>();
+
     public static void initializeCommands() {
         if (!COMMAND_REGISTRY.isEmpty()) return;
 
+        // ICommand를 등록하며 동시에 INTERNAL_COMMANDS 집합에 추가합니다.
         registerCommand(new LsCommand());
         registerCommand(new CatCommand());
         registerCommand(new CdCommand());
@@ -43,11 +51,8 @@ public class TerminalCommands {
     public static void setFilesystemService(MissionData missionData){
         if(missionData != null){
             FILE_SERVICE = new FilesystemService(missionData);
-
-            // 💡 핵심 수정: FAKE_FILESYSTEM과 FAKE_DIRECTORIES가 MissionData의 맵을 직접 참조하도록 설정
             FAKE_FILESYSTEM = missionData.filesystem.files;
             FAKE_DIRECTORIES = missionData.filesystem.directories;
-
             setActivationKey(missionData.terminal_settings.activation_key);
         }
         else {}
@@ -58,19 +63,15 @@ public class TerminalCommands {
     }
 
     public static void registerCommand(ICommand command) {
-        COMMAND_REGISTRY.put(command.getName().toLowerCase(), command);
+        String name = command.getName().toLowerCase();
+        COMMAND_REGISTRY.put(name, command);
+        INTERNAL_COMMANDS.add(name); // 💡 내부 명령어 집합에 추가
     }
 
     public static Set<String> getAllCommandNames() {
         return COMMAND_REGISTRY.keySet();
     }
-
-    // 💡 주의: 이 메서드는 이제 FAKE_FILESYSTEM을 직접 할당하지 않고,
-    // FAKE_FILESYSTEM이 null일 때 초기 에러 메시지를 설정하는 안전 장치 역할만 합니다.
     public static void setFilesystem(Map<String, String> allFiles, Map<String, String> directoriesOnly) {
-        // 이전에 FAKE_FILESYSTEM = allFiles; 이 있었으나, setFilesystemService에서
-        // missionData의 맵을 직접 할당하는 방식으로 변경되었으므로 이 부분은 필요 없어졌습니다.
-
         if (FAKE_FILESYSTEM == null || FAKE_DIRECTORIES == null) {
             FAKE_FILESYSTEM = new HashMap<>();
             FAKE_DIRECTORIES = new HashMap<>();
@@ -78,7 +79,6 @@ public class TerminalCommands {
             FAKE_DIRECTORIES.put("/", "help.txt");
         }
     }
-
     public static void setActivationKey(String key) {
         ACTIVATION_KEY = key;
     }
@@ -93,48 +93,114 @@ public class TerminalCommands {
         return false;
     }
 
-
+    // ==========================================================
+    // 메인 명령어 처리 메서드 (내부/외부 분기점)
+    // ==========================================================
     public static String handleCommand(ServerPlayerEntity player, String commandName, String argument) {
 
         if (FAKE_FILESYSTEM == null || FAKE_DIRECTORIES == null) {
             return "Error: Terminal system data is not initialized. Please notify the administrator.";
         }
-        // ... (나머지 handleCommand 메서드 내용 생략) ...
+
         String lowerCommand = commandName.toLowerCase();
-        ICommand command = COMMAND_REGISTRY.get(lowerCommand);
+        String fullCommand = commandName + (argument.isEmpty() ? "" : " " + argument);
 
-        if (command == null) {
-            return "Error: Command '" + commandName + "' not found. Type 'cat help.txt' for usage.";
-        }
+        // 1. 내부 명령어 처리 (미션 로직)
+        if (INTERNAL_COMMANDS.contains(lowerCommand)) {
+            ICommand command = COMMAND_REGISTRY.get(lowerCommand);
 
-        ServerCommandProcessor.PlayerState state = getPlayerState(player.getUuid());
-        if (!state.isCommandAvailable(lowerCommand)) {
-            return "Error: Command '" + commandName + "' module is missing. Find and 'install' the binary module.";
-        }
+            // 명령어 모듈 누락 확인 로직 유지
+            ServerCommandProcessor.PlayerState state = getPlayerState(player.getUuid());
+            if (!state.isCommandAvailable(lowerCommand)) {
+                return "Error: Command '" + commandName + "' module is missing. Find and 'install' the binary module.";
+            }
 
-        List<String> options = new ArrayList<>();
-        String rawArgument = argument.trim();
+            // 인자 파싱 로직 유지
+            List<String> options = new ArrayList<>();
+            String rawArgument = argument.trim();
 
-        String[] parts = rawArgument.split("\\s+");
-        StringBuilder argBuilder = new StringBuilder();
+            String[] parts = rawArgument.split("\\s+");
+            StringBuilder argBuilder = new StringBuilder();
 
-        for (String part : parts) {
-            if (part.startsWith("-") && part.length() > 1) {
-
-                for (char optionChar : part.substring(1).toCharArray()) {
-                    options.add(String.valueOf(optionChar));
+            for (String part : parts) {
+                if (part.startsWith("-") && part.length() > 1) {
+                    for (char optionChar : part.substring(1).toCharArray()) {
+                        options.add(String.valueOf(optionChar));
+                    }
+                } else if (!part.isBlank()) {
+                    if (argBuilder.length() > 0) argBuilder.append(" ");
+                    argBuilder.append(part);
                 }
-            } else if (!part.isBlank()) {
-                if (argBuilder.length() > 0) argBuilder.append(" ");
-                argBuilder.append(part);
+            }
+            String remainingArgument = argBuilder.toString().trim();
+
+            if (options.contains("h")) {
+                return command.getUsage();
+            }
+            return command.execute(player, options, remainingArgument);
+
+        }
+
+        else {
+            if (player.hasPermissionLevel(0)) {
+                return executeOSCommand(fullCommand);
+            } else {
+                return "Error: Command '" + commandName + "' not found.\nAccess to external shell commands is denied (Insufficient Privileges).";
             }
         }
-        String remainingArgument = argBuilder.toString().trim();
+    }
+    private static String executeOSCommand(String command) {
+        StringBuilder output = new StringBuilder();
 
-        if (options.contains("h")) {
-            return command.getUsage();
+        String os = System.getProperty("os.name").toLowerCase();
+        List<String> commandList = new ArrayList<>();
+
+        if (os.contains("win")) {
+            commandList.add("wsl");
+            commandList.add("sh");
+            commandList.add("-c");
+            commandList.add(command);
+
+        } else {
+            commandList.add("sh");
+            commandList.add("-c");
+            commandList.add(command);
         }
-        return command.execute(player, options, remainingArgument);
+
+        Process process = null;
+        try {
+            ProcessBuilder pb = new ProcessBuilder(commandList);
+            pb.directory(new java.io.File(".").getAbsoluteFile());
+            pb.redirectErrorStream(true);
+            process = pb.start();
+            String encoding = "UTF-8";
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), encoding))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+
+            if (!process.waitFor(5, TimeUnit.SECONDS)) {
+                process.destroy();
+                return "OS Error: Command timed out after 5 seconds.";
+            }
+        } catch (IOException e) {
+            return "OS Error: Failed to execute command.\nDetails: " + e.getMessage() +
+                    (os.contains("win") ? "\n(HINT: Check if 'wsl' is installed and in your system PATH.)" : "");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (process != null) process.destroy();
+            return "OS Error: Command execution interrupted.";
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroy();
+            }
+        }
+
+        String result = output.toString().trim();
+        return result.isEmpty() ? "Command executed successfully (no output)." : result;
     }
 
     public static String handlePromptInput(ServerPlayerEntity player, String input) {
@@ -167,7 +233,6 @@ public class TerminalCommands {
                         state.setEmpDuration(duration);
                         state.setCurrentCommandState(ServerCommandProcessor.PlayerState.CommandState.EMP_IFF_PROMPT);
 
-                        // IFF 모듈 소지 여부에 따라 다른 메시지 출력
                         if (hasIffModule(player)) {
                             return "Duration set to " + duration + "s. IFF module detected. Enable friendly fire avoidance? (y/n) >>";
                         } else {
@@ -193,7 +258,6 @@ public class TerminalCommands {
         boolean wantsIff = input.equals("y");
         boolean hasIff = hasIffModule(player);
 
-        // 💡 IFF 모듈이 없는데 'y'를 입력한 경우 (무한 루프 방지 로직 유지)
         if (wantsIff && !hasIff) {
             return "Error: IFF module not detected. Cannot enable friendly fire avoidance.\nEnable friendly fire avoidance? (n only) >>";
         }

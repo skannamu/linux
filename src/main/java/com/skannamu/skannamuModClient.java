@@ -2,6 +2,7 @@ package com.skannamu;
 
 import com.skannamu.client.ClientExploitManager;
 import com.skannamu.client.ClientHackingState;
+import com.skannamu.client.ClientShaderManager;
 import com.skannamu.client.gui.TerminalScreen;
 import com.skannamu.network.*;
 import com.skannamu.tooltip.standardBlockToolTip;
@@ -69,5 +70,7 @@ public class skannamuModClient implements ClientModInitializer {
                 ClientHackingState.setHacked(payload.isHacked());
             });
         });
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            ClientShaderManager.close(); });
     }
 }

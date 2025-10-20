@@ -2,32 +2,34 @@ package com.skannamu.server;
 
 import com.skannamu.item.block.VaultBlockEntity;
 import com.skannamu.network.VaultSliderPayload;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.world.World;
 
 public class ServerPacketHandler {
 
+    public static void registerPayloads() {
+        PayloadTypeRegistry.playC2S().register(VaultSliderPayload.SLIDER_UPDATE_ID, VaultSliderPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(VaultSliderPayload.SLIDER_SUBMIT_ID, VaultSliderPayload.CODEC);
+    }
+
     public static void registerHandlers() {
-        ServerPlayNetworking.registerGlobalReceiver(VaultSliderPayload.SLIDER_UPDATE_ID, (server, player, handler, buf, responseSender) -> {
-            BlockPos pos = buf.readBlockPos();
-            int sliderIndex = buf.readInt();
-            int newValue = buf.readInt();
+        ServerPlayNetworking.registerGlobalReceiver(VaultSliderPayload.SLIDER_UPDATE_ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            World world = player.getWorld();
 
-            server.execute(() -> {
-                if (player.getWorld().getBlockEntity(pos) instanceof VaultBlockEntity entity) {
-                    entity.updateSliderValue(sliderIndex, newValue);
-                }
-            });
+            if (world.getBlockEntity(payload.pos()) instanceof VaultBlockEntity entity) {
+                entity.updateSliderValue(payload.sliderIndex(), payload.value());
+            }
         });
+        ServerPlayNetworking.registerGlobalReceiver(VaultSliderPayload.SLIDER_SUBMIT_ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            World world = player.getWorld();
 
-        ServerPlayNetworking.registerGlobalReceiver(VaultSliderPayload.SLIDER_SUBMIT_ID, (server, player, handler, buf, responseSender) -> {
-            BlockPos pos = buf.readBlockPos();
-
-            server.execute(() -> {
-                if (player.getWorld().getBlockEntity(pos) instanceof VaultBlockEntity entity) {
-                    entity.checkAndOpenVault();
-                }
-            });
+            if (world.getBlockEntity(payload.pos()) instanceof VaultBlockEntity entity) {
+                entity.checkAndOpenVault(player);
+            }
         });
     }
 }

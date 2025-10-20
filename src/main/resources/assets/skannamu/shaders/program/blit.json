@@ -1,0 +1,13 @@
+{
+  "vertex": "skannamu:blit",
+  "fragment": "skannamu:blit",
+  "attributes": ["Position"],
+  "samplers": [
+    {"name": "Sampler0"}
+  ],
+  "uniforms": [
+    {"name": "ProjMat", "type": "matrix4x4", "count": 16, "auto": "projection"},
+    {"name": "ModelViewMat", "type": "matrix4x4", "count": 16, "auto": "modelview"},
+    {"name": "ScreenSize", "type": "vector", "count": 2, "auto": "screen_size"}
+  ]
+}

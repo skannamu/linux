@@ -1,6 +1,7 @@
 package com.skannamu.mixin;
 
 import com.skannamu.client.ClientExploitManager;
+import com.skannamu.client.ClientShaderManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RenderTickCounter;
@@ -25,6 +26,16 @@ public abstract class GameRendererMixin {
             float tickDelta = tickCounter.getDynamicDeltaTicks();
             float newPitch = ClientExploitManager.updateAndGetCameraPitch(client.player.getPitch(), tickDelta);
             client.player.setPitch(newPitch);
+        }
+    }
+    @Inject(
+            method = "render",
+            at = @At(value = "TAIL")
+    )
+    private void skannamu$renderExploitShaders(RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world != null) {
+            ClientShaderManager.updateAndRenderShaders(client, tickCounter.getDynamicDeltaTicks());
         }
     }
 }

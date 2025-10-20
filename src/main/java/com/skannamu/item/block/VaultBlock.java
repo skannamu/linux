@@ -1,5 +1,7 @@
 package com.skannamu.item.block;
 
+import com.skannamu.init.VaultBlockEntities;
+import com.mojang.serialization.MapCodec;
 import com.skannamu.client.gui.VaultScreen;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -22,7 +24,10 @@ public class VaultBlock extends BlockWithEntity {
         super(settings);
         this.setDefaultState(this.stateManager.getDefaultState().with(OPEN, false));
     }
-
+    @Override
+    protected MapCodec<? extends BlockWithEntity> getCodec() {
+        return Block.createCodec(VaultBlock::new);
+    }
     @Override
     protected void appendProperties(net.minecraft.state.StateManager.Builder<Block, BlockState> builder) {
         builder.add(OPEN);
@@ -33,6 +38,9 @@ public class VaultBlock extends BlockWithEntity {
     public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
         return new VaultBlockEntity(pos, state);
     }
+    public net.minecraft.block.entity.BlockEntityType<? extends BlockEntity> getBlockEntityType() {
+        return VaultBlockEntities.VAULT_BLOCK_ENTITY_TYPE;
+    }
 
     @Override
     public net.minecraft.block.BlockRenderType getRenderType(BlockState state) {
@@ -41,23 +49,28 @@ public class VaultBlock extends BlockWithEntity {
 
     @Override
     protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
-        // [서버 로직] - 안내 메시지 및 상태 확인
-        if (!world.isClient) {
-            if (state.get(OPEN)) {
-                player.sendMessage(Text.literal("§aThe Vault is open. Accessing loot..."), true);
-            } else {
-                player.sendMessage(Text.literal("§7Opening Vault Terminal..."), true);
+        if (world.getBlockEntity(pos) instanceof VaultBlockEntity entity) {
+            // 💡 금고가 이미 정답 상태라면 (비활성화)
+            if (entity.isVaultCorrect()) {
+                if (!world.isClient) {
+                    player.sendMessage(Text.literal("§c이 금고는 이미 해제되었습니다."), true);
+                }
+                return ActionResult.FAIL; // 서버와 클라이언트 모두 FAIL/CONSUME로 처리하여 UI를 열지 않음
             }
-            return ActionResult.SUCCESS;
-        }
-        // [클라이언트 로직] - GUI 표시
-        else {
-            if (world.getBlockEntity(pos) instanceof VaultBlockEntity entity) {
-                // 금고가 열려있든 닫혀있든 GUI를 띄웁니다. (열려있으면 인벤토리 모드가 뜸)
+
+            if (!world.isClient) {
+                if (state.get(OPEN)) {
+                    player.sendMessage(Text.literal("§aThe Vault is open. Accessing loot..."), true);
+                } else {
+                    player.sendMessage(Text.literal("§7Opening Vault Terminal..."), true);
+                }
+                return ActionResult.SUCCESS;
+            }
+            else {
                 MinecraftClient.getInstance().setScreen(new VaultScreen(entity));
                 return ActionResult.SUCCESS;
             }
-            return ActionResult.CONSUME;
         }
+        return ActionResult.CONSUME;
     }
 }
