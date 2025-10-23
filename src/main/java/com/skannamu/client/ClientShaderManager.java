@@ -8,16 +8,18 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.Set; // Set을 사용하기 위해 import 유지
 
 public class ClientShaderManager {
 
     private static final Identifier EXPLOIT_VISION_ID = Identifier.of("skannamu", "post_effect/exploit_vision_v2.json");
     private static final Identifier GLITCH_EFFECT_ID = Identifier.of("skannamu", "post_effect/glitch_effect_v2.json");
+
     private static final Set<Identifier> REQUIRED_EXTERNAL_TARGETS = Set.of(
-            Identifier.of("skannamu", "aux0"),
-            Identifier.of("skannamu", "aux1")
+            PostEffectProcessor.MAIN
     );
+
     @Nullable
     private static PostEffectProcessor exploitVisionShader = null;
     @Nullable

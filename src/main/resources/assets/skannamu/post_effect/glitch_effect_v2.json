@@ -4,13 +4,13 @@
       "vertex_shader": "skannamu:glitch_effect_v",
       "fragment_shader": "skannamu:glitch_effect_f",
 
-      "output": "skannamu:glitch_aux1",
+      "output": "minecraft:main",
 
       "inputs": [
         {
           "type": "target_sampler",
           "sampler_name": "Sampler0",
-          "target": "skannamu:glitch_aux0"
+          "target": "minecraft:main"
         }
       ],
       "uniforms": {
@@ -30,17 +30,5 @@
         ]
       }
     }
-  ],
-  "internal_targets": {
-    "skannamu:glitch_aux1": {
-      "width": "minecraft:main",
-      "height": "minecraft:main",
-      "clear_color": [0.0, 0.0, 0.0, 0.0]
-    },
-    "skannamu:glitch_aux0": {
-      "width": "minecraft:main",
-      "height": "minecraft:main",
-      "clear_color": [0.0, 0.0, 0.0, 0.0]
-    }
-  }
+  ]
 }
