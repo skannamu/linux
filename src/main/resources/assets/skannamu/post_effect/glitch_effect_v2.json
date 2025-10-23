@@ -1,0 +1,46 @@
+{
+  "passes": [
+    {
+      "vertex_shader": "skannamu:glitch_effect_v",
+      "fragment_shader": "skannamu:glitch_effect_f",
+
+      "output": "skannamu:glitch_aux1",
+
+      "inputs": [
+        {
+          "type": "target_sampler",
+          "sampler_name": "Sampler0",
+          "target": "skannamu:glitch_aux0"
+        }
+      ],
+      "uniforms": {
+        "Time": [
+          {
+            "type": "float",
+            "auto": "time",
+            "value": 0.0
+          }
+        ],
+        "ScreenSize": [
+          {
+            "type": "vec2",
+            "auto": "screen_size",
+            "value": [0.0, 0.0]
+          }
+        ]
+      }
+    }
+  ],
+  "internal_targets": {
+    "skannamu:glitch_aux1": {
+      "width": "minecraft:main",
+      "height": "minecraft:main",
+      "clear_color": [0.0, 0.0, 0.0, 0.0]
+    },
+    "skannamu:glitch_aux0": {
+      "width": "minecraft:main",
+      "height": "minecraft:main",
+      "clear_color": [0.0, 0.0, 0.0, 0.0]
+    }
+  }
+}

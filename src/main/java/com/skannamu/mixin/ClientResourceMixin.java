@@ -14,14 +14,15 @@ import java.util.concurrent.CompletableFuture;
 @Mixin(MinecraftClient.class)
 public class ClientResourceMixin {
 
-    @Inject(method = "reloadResources(ZLnet/minecraft/resource/ResourceManager;Lnet/minecraft/util/profiler/Profiler;Ljava/util/concurrent/CompletableFuture;)Ljava/util/concurrent/CompletableFuture;",
-            at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/util/Util;method_18174(Ljava/lang/Object;)Ljava/lang/Object;",
-                    shift = At.Shift.AFTER))
-    private void skannamu$onPostResourceReload(boolean bl, ResourceManager resourceManager, Profiler profiler, CompletableFuture<Void> asyncTasks, CallbackInfoReturnable<CompletableFuture<Void>> info) {
+    @Inject(method = "reloadResources",
+            at = @At("HEAD")) // 메서드 시작 지점에 인젝션합니다.
+    private void skannamu$onResourceReloadStart(boolean bl, ResourceManager resourceManager, Profiler profiler, CompletableFuture<Void> asyncTasks, CallbackInfoReturnable<CompletableFuture<Void>> info) {
+
         info.getReturnValue().thenRun(() -> {
             MinecraftClient client = (MinecraftClient)(Object)this;
-            ClientShaderManager.initShaders(client);
+            client.execute(() -> {
+                ClientShaderManager.initShaders(client);
+            });
         });
     }
 }
