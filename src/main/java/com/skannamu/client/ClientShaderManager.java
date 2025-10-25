@@ -8,8 +8,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
-import java.util.Set; // Set을 사용하기 위해 import 유지
+import java.util.Set;
+import net.minecraft.client.gl.WindowFramebuffer; // WindowFramebuffer import 유지
 
 public class ClientShaderManager {
 
@@ -43,7 +43,6 @@ public class ClientShaderManager {
     @Nullable
     private static PostEffectProcessor loadShader(MinecraftClient client, Identifier id) {
         String path = id.getPath();
-
         String fileNameWithExt = path.substring(path.lastIndexOf('/') + 1);
 
         String baseName = fileNameWithExt.endsWith(".json")
@@ -57,7 +56,6 @@ public class ClientShaderManager {
         System.out.println("--- Starting Shader Load for: " + id + " ---");
 
         try {
-            // ➡️ 수정된 부분: REQUIRED_EXTERNAL_TARGETS가 빈 Set으로 전달됩니다.
             PostEffectProcessor loadedShader = client.getShaderLoader().loadPostEffect(loaderId, REQUIRED_EXTERNAL_TARGETS);
 
             if (loadedShader == null) {
@@ -79,6 +77,11 @@ public class ClientShaderManager {
     }
 
     public static void initShaders(MinecraftClient client) {
+        // [수정된 부분]: 쉐이더를 새로 로드하기 전에 기존 쉐이더의 내부 버퍼 리소스를 해제합니다.
+        // 이로써 리소스 재로딩 시 Buffer already closed 에러를 방지합니다.
+        close();
+
+        // close()에서 쉐이더 변수를 null로 설정했으므로, 아래 조건문은 재로딩 시에도 true가 되어 쉐이더를 다시 로드합니다.
         if (exploitVisionShader == null) {
             exploitVisionShader = loadShader(client, EXPLOIT_VISION_ID);
         }
@@ -92,34 +95,25 @@ public class ClientShaderManager {
             currentTime = (float) (client.world.getTime() + tickDelta);
         }
 
-        boolean shouldVisionRender = shouldRenderExploitVision(client);
-        exploitVisionShader = manageShader(client, exploitVisionShader, EXPLOIT_VISION_ID, shouldVisionRender);
+        WindowFramebuffer mainTarget = (WindowFramebuffer) client.getFramebuffer();
 
+        boolean shouldVisionRender = shouldRenderExploitVision(client);
         if (exploitVisionShader != null && shouldVisionRender) {
-            exploitVisionShader.render(client.getFramebuffer(), OBJECT_ALLOCATOR);
+            exploitVisionShader.render(mainTarget, OBJECT_ALLOCATOR);
+            // System.out.println("[DEBUG] Rendering Exploit Vision Shader: " + client.world.getTime()); // 렌더링 확인용 추가
+        } else if (exploitVisionShader == null && shouldVisionRender) {
+            // 🚨 셰이더 로드 실패/누락 디버그 추가
+            System.out.println("[ERROR] Exploit Vision Shader is NULL but shouldRender is TRUE.");
         }
+
 
         boolean shouldGlitchRender = shouldRenderGlitchEffect(client);
-        glitchEffectShader = manageShader(client, glitchEffectShader, GLITCH_EFFECT_ID, shouldGlitchRender);
-
         if (glitchEffectShader != null && shouldGlitchRender) {
-            glitchEffectShader.render(client.getFramebuffer(), OBJECT_ALLOCATOR);
-        }
-    }
-
-    @Nullable
-    private static PostEffectProcessor manageShader(MinecraftClient client, @Nullable PostEffectProcessor shader, Identifier id, boolean shouldRender) {
-        if (shouldRender) {
-            if (shader == null) {
-                return loadShader(client, id);
-            }
-            return shader;
-        } else {
-            if (shader != null) {
-                System.out.println("[INFO] Closing shader: " + id);
-                shader.close();
-            }
-            return null;
+            glitchEffectShader.render(mainTarget, OBJECT_ALLOCATOR);
+            // System.out.println("[DEBUG] Rendering Glitch Effect Shader: " + client.world.getTime()); // 렌더링 확인용 추가
+        } else if (glitchEffectShader == null && shouldGlitchRender) {
+            // 🚨 셰이더 로드 실패/누락 디버그 추가
+            System.out.println("[ERROR] Glitch Effect Shader is NULL but shouldRender is TRUE.");
         }
     }
 
@@ -158,15 +152,14 @@ public class ClientShaderManager {
 
         return false;
     }
-
     public static void close() {
         if (exploitVisionShader != null) {
-            System.out.println("[INFO] Closing exploitVisionShader on application close.");
+            System.out.println("[INFO] Closing exploitVisionShader on application close or resource reload.");
             exploitVisionShader.close();
             exploitVisionShader = null;
         }
         if (glitchEffectShader != null) {
-            System.out.println("[INFO] Closing glitchEffectShader on application close.");
+            System.out.println("[INFO] Closing glitchEffectShader on application close or resource reload.");
             glitchEffectShader.close();
             glitchEffectShader = null;
         }

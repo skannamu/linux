@@ -1,8 +1,7 @@
-package com.skannamu.mixin;
+/*package com.skannamu.mixin;
 
 import com.skannamu.client.ClientShaderManager;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.profiler.Profiler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -12,17 +11,26 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.concurrent.CompletableFuture;
 
 @Mixin(MinecraftClient.class)
-public class ClientResourceMixin {
+public abstract class ClientResourceMixin {
 
-    @Inject(method = "reloadResources",
-            at = @At("HEAD")) // 메서드 시작 지점에 인젝션합니다.
-    private void skannamu$onResourceReloadStart(boolean bl, ResourceManager resourceManager, Profiler profiler, CompletableFuture<Void> asyncTasks, CallbackInfoReturnable<CompletableFuture<Void>> info) {
-
-        info.getReturnValue().thenRun(() -> {
+    @Inject(
+            method = "reloadResources",
+            at = @At("RETURN")
+    )
+    private void skannamu$onResourceReloadStart(
+            CallbackInfoReturnable<CompletableFuture<Void>> cir
+    ) {
+        cir.getReturnValue().thenRun(() -> {
             MinecraftClient client = (MinecraftClient)(Object)this;
+
             client.execute(() -> {
+                System.out.println("[Skannamu|ResourceMixin] Resource reload complete. Initializing shaders on Main Thread.");
                 ClientShaderManager.initShaders(client);
+
+                if (client.inGameHud != null) {
+                    client.inGameHud.getChatHud().addMessage(net.minecraft.text.Text.literal("§a[Skannamu] Shaders reloaded successfully."));
+                }
             });
         });
     }
-}
+}*/
