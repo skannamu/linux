@@ -20,7 +20,6 @@ public class DecryptCommand implements ICommand {
 
     @Override
     public String getUsage() {
-        // ... (도움말 내용 유지)
         return "Usage: decrypt -m <mode> [string]\n" +
                 "Decodes an encrypted string using the specified mode.\n\n" +
                 "Available Modes (-m):\n" +

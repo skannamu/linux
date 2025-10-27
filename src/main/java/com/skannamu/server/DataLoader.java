@@ -48,17 +48,13 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
                 this.loadedMissionDataInstance = gson.fromJson(jsonElement, missionDataType);
                 skannamuMod.LOGGER.info("Successfully parsed MissionData object.");
 
-                // 터미널 명령어 시스템 초기화
-                TerminalCommands.setFilesystemService(this.loadedMissionDataInstance);
 
             } catch (Exception e) {
                 skannamuMod.LOGGER.error("Failed to deserialize MissionData:", e);
                 this.loadedMissionDataInstance = null;
-                TerminalCommands.setFilesystemService(null);
             }
         } else {
             this.loadedMissionDataInstance = null;
-            TerminalCommands.setFilesystemService(null);
         }
 
         skannamuMod.LOGGER.info("Completed mission data loading and terminal initialization.");
@@ -101,7 +97,6 @@ public class DataLoader implements SimpleSynchronousResourceReloadListener {
         return this.loadedMissionDataInstance;
     }
 
-    // 💡 VaultBlock이 사용할 금고 설정을 제공
     public @Nullable MissionData.VaultSettings getVaultSettings() {
         if (this.loadedMissionDataInstance != null && this.loadedMissionDataInstance.vault_settings != null) {
             return this.loadedMissionDataInstance.vault_settings;

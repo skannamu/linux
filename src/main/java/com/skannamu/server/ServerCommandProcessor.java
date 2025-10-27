@@ -43,7 +43,7 @@ public class ServerCommandProcessor {
             player.sendMessage(Text.literal("Terminal: Command '" + commandName + "' is already active."), true);
             return;
         }
-        if (commandName.equals("exploit") || commandName.equals("auxiliary")) {
+        if (commandName.equals("exploit") || commandName.equals("auxiliary") || commandName.equals("mkdir") || commandName.equals("rm")) {
             state.addCommand(commandName);
             LOGGER.info("Added command: {} to player: {}, availableCommands after: {}",
                     commandName, player.getGameProfile().getName(), state.availableCommands);
@@ -54,7 +54,6 @@ public class ServerCommandProcessor {
     }
 
     public static void setFilesystem(Map<String, String> allFiles, Map<String, String> directoriesOnly) {
-        TerminalCommands.setFilesystem(allFiles, directoriesOnly);
     }
 
     public static void setActivationKey(String key) {
@@ -64,7 +63,7 @@ public class ServerCommandProcessor {
     public static void processCommand(ServerPlayerEntity player, String fullCommand) {
         String output;
 
-        PlayerState state = getPlayerState(player.getUuid());
+        PlayerState state = getPlayerState(player);
 
         if (state.getCurrentCommandState() != PlayerState.CommandState.INACTIVE) {
             output = TerminalCommands.handlePromptInput(player, fullCommand.trim());
@@ -85,8 +84,13 @@ public class ServerCommandProcessor {
         ServerPlayNetworking.send(player, payload);
     }
 
+    public static PlayerState getPlayerState(ServerPlayerEntity player) {
+        UUID playerId = player.getUuid();
+        return PLAYER_STATES.computeIfAbsent(playerId, k -> new PlayerState(playerId, player.getGameProfile().getName()));
+    }
+
     public static PlayerState getPlayerState(UUID playerId) {
-        return PLAYER_STATES.computeIfAbsent(playerId, k -> new PlayerState());
+        return PLAYER_STATES.getOrDefault(playerId, new PlayerState(playerId, "unknown"));
     }
 
     public static boolean isPlayerActive(UUID playerId) {
@@ -95,9 +99,10 @@ public class ServerCommandProcessor {
     }
 
     public static class PlayerState {
+        private final UUID playerId;
         private boolean isHackerActive = false;
         private long activationTime = 0;
-        private String currentPath = "/";
+        private String currentPath;
 
         private final Set<String> availableCommands = new HashSet<>();
 
@@ -111,15 +116,31 @@ public class ServerCommandProcessor {
         private int empRange = 0;
         private int empDuration = 0;
 
-        public PlayerState() {
+        public PlayerState(UUID playerId, String playerName) {
+            this.playerId = playerId;
+
+            String normalizedName = playerName.replaceAll("[^a-zA-Z0-9_-]", "_").toLowerCase();
+            this.currentPath = TerminalCommands.normalizePath("/home/" + normalizedName);
+
+            // 🔴 수정: 파일 시스템 초기화 시도를 PlayerState 생성자에서 제거함.
+            // 이 로직은 skannamuMod.onPlayerJoin으로 이동합니다.
+            /*
+            if (TerminalCommands.getFileService() != null) {
+                TerminalCommands.getFileService().createDirectory(playerId, this.currentPath);
+            }
+            */
+
             availableCommands.add("ls");
+            availableCommands.add("cat");
             availableCommands.add("cd");
             availableCommands.add("pwd");
             availableCommands.add("help");
+            availableCommands.add("echo");
         }
 
+
         public boolean isHackerActive() { return isHackerActive; }
-        public void setHackerActive(boolean hackerActive) { isHackerActive = hackerActive; }
+        public void setHackerActive(boolean hackerActive) { this.isHackerActive = hackerActive; }
         public long getActivationTime() { return activationTime; }
         public void setActivationTime(long activationTime) { this.activationTime = activationTime; }
         public String getCurrentPath() { return currentPath; }

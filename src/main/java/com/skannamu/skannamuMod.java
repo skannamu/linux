@@ -9,6 +9,9 @@ import com.skannamu.network.ExploitTriggerPayload;
 import com.skannamu.network.ModuleActivationPayload;
 import com.skannamu.network.TerminalOutputPayload;
 import com.skannamu.network.TerminalCommandPayload;
+import com.skannamu.server.DatabaseService;
+import com.skannamu.server.FilesystemService;
+import com.skannamu.server.MissionData;
 import com.skannamu.server.DataLoader;
 import com.skannamu.server.ServerCommandProcessor;
 import com.skannamu.server.ExploitScheduler;
@@ -17,14 +20,19 @@ import com.skannamu.server.ServerPacketHandler;
 import com.skannamu.server.command.ExploitCommand;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.fabricmc.fabric.api.networking.v1.PacketSender;import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.WorldSavePath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,28 +43,29 @@ public class skannamuMod implements ModInitializer {
     public static Item PORTABLE_TERMINAL;
     public static Item STANDARD_BLOCK_ITEM;
 
+    private static DatabaseService databaseService;
+    private static FilesystemService filesystemService;
+
     @Override
     public void onInitialize() {
         LOGGER.info("[skannamuMod] Initializing...");
 
-        // --- 1. 블록 및 아이템 등록 (Block Entity Type 등록보다 먼저) ---
         BlockInitialization.initializeBlocks();
         ModItems.initializeItems();
-
-        // 🟢 2. Block Entity 타입 등록 (이제 BlockInitialization.VAULT_BLOCK을 안전하게 참조 가능)
         VaultBlockEntities.registerBlockEntities();
 
-        // --- 3. 페이로드 등록 ---
+        // Payload 등록 (S2C 및 C2S)
         PayloadTypeRegistry.playS2C().register(ExploitSequencePayload.ID, ExploitSequencePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TerminalOutputPayload.ID, TerminalOutputPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(HackedStatusPayload.ID, HackedStatusPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TerminalCommandPayload.ID, TerminalCommandPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(ExploitTriggerPayload.ID, ExploitTriggerPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(ModuleActivationPayload.ID, ModuleActivationPayload.CODEC);
 
-        ServerPacketHandler.registerPayloads(); // VaultSliderPayload의 ID와 Codec 등록
+        // Packet Handler 등록
+        ServerPacketHandler.registerPayloads();
+        ServerPacketHandler.registerHandlers();
+        ServerCommandProcessor.registerPayloadsAndHandlers();
 
-        // --- 4. 네트워킹 핸들러 등록 ---
         ServerPlayNetworking.registerGlobalReceiver(TerminalCommandPayload.ID, (payload, context) -> {
             MinecraftServer serverInstance = context.server();
             if (serverInstance != null) {
@@ -74,9 +83,14 @@ public class skannamuMod implements ModInitializer {
             server.execute(() -> ServerCommandProcessor.handleModuleActivation(player, commandName));
         });
 
-        ServerPacketHandler.registerHandlers();
+        // Lifecycle Events 등록
+        ServerLifecycleEvents.SERVER_STARTING.register(skannamuMod::onServerStarting);
+        DataLoader.registerDataLoaders();
+        ServerLifecycleEvents.END_DATA_PACK_RELOAD.register(skannamuMod::onDataPackReloadEnd);
 
-        // --- 5. 기타 등록 및 초기화 ---
+        // 플레이어 접속 이벤트 등록
+        ServerPlayConnectionEvents.JOIN.register(skannamuMod::onPlayerJoin);
+
         ExploitScheduler.registerHandlers();
         TerminalCommands.initializeCommands();
         ExploitCommand.registerDamageType();
@@ -84,10 +98,81 @@ public class skannamuMod implements ModInitializer {
         PORTABLE_TERMINAL = ModItems.PORTABLE_TERMINAL;
         STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
 
-        DataLoader.registerDataLoaders();
-
-        CommandRegistrationCallback.EVENT.register(TerminalCommands::registerCommands);
         ServerTickEvents.END_SERVER_TICK.register(new ExploitScheduler());
-        LOGGER.info("[skannamuMod] Initializing complete.");
+
+        LOGGER.info("[skannamuMod] Initialization complete.");
+    }
+
+    private static void onServerStarting(MinecraftServer server) {
+        LOGGER.info("[skannamuMod] Server starting: Initializing DatabaseService...");
+
+        databaseService = new DatabaseService(server.getSavePath(WorldSavePath.ROOT));
+        databaseService.createTables();
+
+        // MissionData가 내부적으로 빈 맵으로 초기화되도록 수정했으므로, 이 시점에 크래시가 발생하지 않습니다.
+        filesystemService = new FilesystemService(new MissionData(), databaseService);
+        TerminalCommands.setFilesystemService(filesystemService);
+
+        // 글로벌 경로 초기화는 MissionData가 필요하지 않으므로 여기서 실행합니다.
+        filesystemService.initializeGlobalPaths();
+
+        LOGGER.info("[skannamuMod] Minimal Filesystem Service initialized (Awaiting MissionData).");
+
+        ServerTickEvents.END_SERVER_TICK.register(skannamuMod::onServerTickEnd);
+    }
+
+    private static void onDataPackReloadEnd(MinecraftServer server, net.minecraft.resource.ResourceManager resourceManager, boolean success) {
+
+        if (databaseService == null || filesystemService == null) {
+            LOGGER.error("[skannamuMod] Database or Filesystem Service is NULL! Cannot reload data.");
+            return;
+        }
+
+        MissionData missionData = DataLoader.INSTANCE.getMissionDataInstance();
+
+        if (missionData != null) {
+            // MissionData가 로드되면 FilesystemService를 새로 생성하여 완전한 데이터를 주입합니다.
+            filesystemService = new FilesystemService(missionData, databaseService);
+            TerminalCommands.setFilesystemService(filesystemService);
+
+            if (missionData.terminal_settings != null) {
+                TerminalCommands.setActivationKey(missionData.terminal_settings.activation_key);
+            } else {
+                TerminalCommands.setActivationKey("DEFAULT_KEY");
+                LOGGER.warn("[skannamuMod] Terminal settings not found in reloaded data. Using default activation key.");
+            }
+
+            LOGGER.info("[skannamuMod] Filesystem Service and Terminal Commands successfully re-initialized with MissionData.");
+        } else {
+            // 데이터 로드 실패 로그
+            LOGGER.error("[skannamuMod] MissionData load failed or is null. Running with default/empty configuration.");
+        }
+    }
+
+    private static void onPlayerJoin(ServerPlayNetworkHandler handler, PacketSender sender, MinecraftServer server) {
+        ServerPlayerEntity player = handler.player;
+
+        ServerCommandProcessor.PlayerState state = ServerCommandProcessor.getPlayerState(player);
+
+        if (TerminalCommands.getFileService() != null) {
+            // 플레이어의 홈 디렉토리를 DB에 생성합니다. (이미 존재하면 무시됨)
+            // FilesystemService.checkPathType의 수정으로 /home이 이제 디렉토리로 인식되어야 합니다.
+            TerminalCommands.getFileService().createDirectory(player.getUuid(), state.getCurrentPath());
+        } else {
+            LOGGER.warn("[skannamuMod] Player {} joined before FSS was fully initialized. Terminal commands may fail.", player.getGameProfile().getName());
+        }
+    }
+
+
+    private static void onServerTickEnd(MinecraftServer server) {
+        long currentTick = server.getTicks();
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            ServerCommandProcessor.PlayerState state = ServerCommandProcessor.getPlayerState(player);
+            if (state.isHacked() && state.getHackedUntilTick() <= currentTick) {
+                state.setHacked(false, 0, server);
+                ServerPlayNetworking.send(player, new HackedStatusPayload(false));
+                player.sendMessage(Text.literal("✅ Terminal systems restored."), true);
+            }
+        }
     }
 }

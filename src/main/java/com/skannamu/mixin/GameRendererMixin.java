@@ -30,7 +30,11 @@ public abstract class GameRendererMixin {
     }
     @Inject(
             method = "render",
-            at = @At(value = "TAIL")
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/render/GameRenderer;renderWorld(Lnet/minecraft/client/render/RenderTickCounter;)V",
+                    shift = At.Shift.AFTER
+            )
     )
     private void skannamu$renderExploitShaders(RenderTickCounter tickCounter, boolean tick, CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();

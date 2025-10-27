@@ -2,6 +2,7 @@ package com.skannamu.server;
 
 import com.skannamu.server.command.*;
 import com.skannamu.network.HackedStatusPayload;
+import com.skannamu.network.TerminalOutputPayload;
 import com.skannamu.init.ModItems;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -29,13 +30,11 @@ public class TerminalCommands {
     private static FilesystemService FILE_SERVICE = null;
     private static final Map<String, ICommand> COMMAND_REGISTRY = new HashMap<>();
 
-    // 💡 내부 명령어 목록을 정의하여 외부 쉘 명령어와 분리합니다.
     private static final Set<String> INTERNAL_COMMANDS = new HashSet<>();
 
     public static void initializeCommands() {
         if (!COMMAND_REGISTRY.isEmpty()) return;
 
-        // ICommand를 등록하며 동시에 INTERNAL_COMMANDS 집합에 추가합니다.
         registerCommand(new LsCommand());
         registerCommand(new CatCommand());
         registerCommand(new CdCommand());
@@ -46,16 +45,12 @@ public class TerminalCommands {
         registerCommand(new ExploitCommand());
         registerCommand(new AuxiliaryCommand());
         registerCommand(new EchoCommand());
+        registerCommand(new MkdirCommand());
+        registerCommand(new RmCommand());
     }
+    public static void setFilesystemService(FilesystemService fileService){
+        FILE_SERVICE = fileService;
 
-    public static void setFilesystemService(MissionData missionData){
-        if(missionData != null){
-            FILE_SERVICE = new FilesystemService(missionData);
-            FAKE_FILESYSTEM = missionData.filesystem.files;
-            FAKE_DIRECTORIES = missionData.filesystem.directories;
-            setActivationKey(missionData.terminal_settings.activation_key);
-        }
-        else {}
     }
 
     public static FilesystemService getFileService(){
@@ -65,57 +60,36 @@ public class TerminalCommands {
     public static void registerCommand(ICommand command) {
         String name = command.getName().toLowerCase();
         COMMAND_REGISTRY.put(name, command);
-        INTERNAL_COMMANDS.add(name); // 💡 내부 명령어 집합에 추가
+        INTERNAL_COMMANDS.add(name);
     }
-
     public static Set<String> getAllCommandNames() {
         return COMMAND_REGISTRY.keySet();
     }
-    public static void setFilesystem(Map<String, String> allFiles, Map<String, String> directoriesOnly) {
-        if (FAKE_FILESYSTEM == null || FAKE_DIRECTORIES == null) {
-            FAKE_FILESYSTEM = new HashMap<>();
-            FAKE_DIRECTORIES = new HashMap<>();
-            FAKE_FILESYSTEM.put("/", "Error loading filesystem. Check server logs.");
-            FAKE_DIRECTORIES.put("/", "help.txt");
-        }
-    }
+
     public static void setActivationKey(String key) {
         ACTIVATION_KEY = key;
     }
-
-    private static boolean hasIffModule(ServerPlayerEntity player) {
-        PlayerInventory inventory = player.getInventory();
-        for (ItemStack stack : inventory.getMainStacks()) {
-            if (!stack.isEmpty() && stack.getItem() == ModItems.EMP_IFF_MODULE) {
-                return true;
-            }
-        }
-        return false;
+    public static void sendCwdUpdate(ServerPlayerEntity player, String newPath) {
+        ServerPlayNetworking.send(player, new TerminalOutputPayload("@@CWD:" + newPath));
     }
 
-    // ==========================================================
-    // 메인 명령어 처리 메서드 (내부/외부 분기점)
-    // ==========================================================
     public static String handleCommand(ServerPlayerEntity player, String commandName, String argument) {
 
-        if (FAKE_FILESYSTEM == null || FAKE_DIRECTORIES == null) {
+        if (FILE_SERVICE == null) {
             return "Error: Terminal system data is not initialized. Please notify the administrator.";
         }
 
         String lowerCommand = commandName.toLowerCase();
         String fullCommand = commandName + (argument.isEmpty() ? "" : " " + argument);
 
-        // 1. 내부 명령어 처리 (미션 로직)
         if (INTERNAL_COMMANDS.contains(lowerCommand)) {
             ICommand command = COMMAND_REGISTRY.get(lowerCommand);
 
-            // 명령어 모듈 누락 확인 로직 유지
             ServerCommandProcessor.PlayerState state = getPlayerState(player.getUuid());
             if (!state.isCommandAvailable(lowerCommand)) {
                 return "Error: Command '" + commandName + "' module is missing. Find and 'install' the binary module.";
             }
 
-            // 인자 파싱 로직 유지
             List<String> options = new ArrayList<>();
             String rawArgument = argument.trim();
 
@@ -149,6 +123,7 @@ public class TerminalCommands {
             }
         }
     }
+
     private static String executeOSCommand(String command) {
         StringBuilder output = new StringBuilder();
 
@@ -160,7 +135,6 @@ public class TerminalCommands {
             commandList.add("sh");
             commandList.add("-c");
             commandList.add(command);
-
         } else {
             commandList.add("sh");
             commandList.add("-c");
@@ -170,7 +144,7 @@ public class TerminalCommands {
         Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(commandList);
-            pb.directory(new java.io.File(".").getAbsoluteFile());
+            // pb.directory(new java.io.File(".").getAbsoluteFile()); // 주석 처리 또는 제거하여 단순화
             pb.redirectErrorStream(true);
             process = pb.start();
             String encoding = "UTF-8";
@@ -183,7 +157,7 @@ public class TerminalCommands {
             }
 
             if (!process.waitFor(5, TimeUnit.SECONDS)) {
-                process.destroy();
+                process.destroyForcibly();
                 return "OS Error: Command timed out after 5 seconds.";
             }
         } catch (IOException e) {
@@ -191,18 +165,32 @@ public class TerminalCommands {
                     (os.contains("win") ? "\n(HINT: Check if 'wsl' is installed and in your system PATH.)" : "");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            if (process != null) process.destroy();
+            if (process != null) process.destroyForcibly();
             return "OS Error: Command execution interrupted.";
         } finally {
             if (process != null && process.isAlive()) {
-                process.destroy();
+                process.destroyForcibly();
             }
         }
 
         String result = output.toString().trim();
-        return result.isEmpty() ? "Command executed successfully (no output)." : result;
+        // 성공 시, 출력이 없으면 빈 문자열을 반환하여 터미널에 아무것도 출력되지 않게 합니다.
+        return result.isEmpty() ? "" : result;
     }
 
+    private static boolean hasIffModule(ServerPlayerEntity player) {
+        PlayerInventory inventory = player.getInventory();
+        for (ItemStack stack : inventory.getMainStacks()) {
+            if (!stack.isEmpty() && stack.getItem() == ModItems.EMP_IFF_MODULE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ==========================================================
+    // 프롬프트 입력 처리 메서드 (다단계 명령어)
+    // ==========================================================
     public static String handlePromptInput(ServerPlayerEntity player, String input) {
         ServerCommandProcessor.PlayerState state = getPlayerState(player.getUuid());
 
@@ -236,6 +224,7 @@ public class TerminalCommands {
                         if (hasIffModule(player)) {
                             return "Duration set to " + duration + "s. IFF module detected. Enable friendly fire avoidance? (y/n) >>";
                         } else {
+                            // IFF 모듈이 없을 경우, N만 허용하고 안내합니다.
                             return "Duration set to " + duration + "s. IFF module NOT detected. Enable friendly fire avoidance? (n only) >>";
                         }
                     } catch (NumberFormatException e) {
@@ -266,7 +255,6 @@ public class TerminalCommands {
             return "Invalid input. Please enter 'y' or 'n'.\nEnable friendly fire avoidance? (y/n) >>";
         }
 
-
         int range = state.getEmpRange();
         int durationSeconds = state.getEmpDuration();
         int durationTicks = durationSeconds * 20;
@@ -283,7 +271,9 @@ public class TerminalCommands {
 
     private static void performEmp(ServerPlayerEntity empInitiator, int range, int durationTicks, boolean wantsIff) {
         MinecraftServer server = empInitiator.getServer();
-        for (ServerPlayerEntity targetPlayer : empInitiator.getServer().getPlayerManager().getPlayerList()) {
+        if (server == null) return;
+
+        for (ServerPlayerEntity targetPlayer : server.getPlayerManager().getPlayerList()) {
 
             if (targetPlayer.equals(empInitiator)) {
                 continue;
@@ -291,7 +281,10 @@ public class TerminalCommands {
 
             if (empInitiator.distanceTo(targetPlayer) <= range) {
 
-                if (wantsIff && hasIffModule(empInitiator)) {}
+                // 💡 수정: IFF 로직이 제대로 작동하도록 'continue'를 추가합니다.
+                if (wantsIff && hasIffModule(empInitiator)) {
+                    continue;
+                }
 
                 ServerCommandProcessor.PlayerState targetState = getPlayerState(targetPlayer.getUuid());
                 targetState.setHacked(true, durationTicks, server);
@@ -302,10 +295,6 @@ public class TerminalCommands {
                 targetPlayer.sendMessage(Text.literal("❗️ EMP incoming... Terminal systems shutting down."), true);
             }
         }
-    }
-
-
-    public static void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
     }
 
     public static String normalizePath(String path) {

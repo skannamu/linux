@@ -16,14 +16,14 @@ public class EchoCommand implements ICommand {
         return "Usage: echo [OPTIONS] [STRING] [OP] [FILE_PATH]\n" +
                 "Displays a line of text. Supports redirection.\n" +
                 "  -h: Display this help message.\n" +
-                "  -n: Do not output the trailing newline.\n" + // 리눅스 echo의 일반적인 옵션도 추가 가능
+                "  -n: Do not output the trailing newline.\n" +
                 "  > : Overwrite the file with STRING.\n" +
                 "  >>: Append STRING to the end of the file.";
     }
 
     @Override
     public String execute(ServerPlayerEntity player, List<String> optionsList, String remainingArgument) {
-        if (optionsList.contains("-h")) {
+        if (optionsList.contains("h")) {
             return getUsage();
         }
 
@@ -37,9 +37,10 @@ public class EchoCommand implements ICommand {
             return "Error: Missing file path for redirection operator '" + result.operator + "'.";
         }
 
-        String currentDirectory = TerminalCommands.getPlayerState(player.getUuid()).getCurrentPath();
+        String currentDirectory = TerminalCommands.getCurrentPlayerPath(player);
 
         String message = TerminalCommands.getFileService().redirectOutput(
+                player.getUuid(), // 플레이어의 UUID
                 currentDirectory,
                 result.filePath,
                 result.textToEcho.trim(),
@@ -53,16 +54,16 @@ public class EchoCommand implements ICommand {
         String textToEcho = input;
         String operator = null;
         String filePath = null;
+
         int appendIndex = input.lastIndexOf(">>");
-        if (appendIndex != -1) {
+        if (appendIndex != -1 && (appendIndex == 0 || input.charAt(appendIndex - 1) != '>')) {
             operator = ">>";
             textToEcho = input.substring(0, appendIndex).trim();
             filePath = input.substring(appendIndex + 2).trim();
         }
-        // > (overwrite) 체크
         else {
             int overwriteIndex = input.lastIndexOf(">");
-            if (overwriteIndex != -1) {
+            if (overwriteIndex != -1 && (overwriteIndex == 0 || input.charAt(overwriteIndex - 1) != '>') ) {
                 operator = ">";
                 textToEcho = input.substring(0, overwriteIndex).trim();
                 filePath = input.substring(overwriteIndex + 1).trim();
@@ -76,7 +77,6 @@ public class EchoCommand implements ICommand {
         return new CommandParsingResult(textToEcho, operator, filePath);
     }
 
-    // 파싱 결과를 담을 간단한 내부 클래스
     private static class CommandParsingResult {
         String textToEcho;
         String operator; // ">" or ">>" or null

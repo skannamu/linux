@@ -1,5 +1,7 @@
 package com.skannamu.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.opengl.GlStateManager; // GlStateManager의 _viewport는 그대로 사용 가능
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.PostEffectProcessor;
 import net.minecraft.client.util.ObjectAllocator;
@@ -9,7 +11,7 @@ import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
-import net.minecraft.client.gl.WindowFramebuffer; // WindowFramebuffer import 유지
+import net.minecraft.client.gl.WindowFramebuffer;
 
 public class ClientShaderManager {
 
@@ -77,11 +79,8 @@ public class ClientShaderManager {
     }
 
     public static void initShaders(MinecraftClient client) {
-        // [수정된 부분]: 쉐이더를 새로 로드하기 전에 기존 쉐이더의 내부 버퍼 리소스를 해제합니다.
-        // 이로써 리소스 재로딩 시 Buffer already closed 에러를 방지합니다.
         close();
 
-        // close()에서 쉐이더 변수를 null로 설정했으므로, 아래 조건문은 재로딩 시에도 true가 되어 쉐이더를 다시 로드합니다.
         if (exploitVisionShader == null) {
             exploitVisionShader = loadShader(client, EXPLOIT_VISION_ID);
         }
@@ -97,25 +96,42 @@ public class ClientShaderManager {
 
         WindowFramebuffer mainTarget = (WindowFramebuffer) client.getFramebuffer();
 
+        // ⭐️ LOG 1: 뷰포트 변경 전 상태 (디버깅 목적)
+        System.out.println("[DEBUG] [Pre-Render] Main Target Size: W=" + mainTarget.textureWidth + ", H=" + mainTarget.textureHeight);
+
+        // 1단계: 기존 렌더링 상태(ModelView & Projection)를 스택에 저장합니다.
+        RenderSystem.getModelViewStack().pushMatrix();
+        RenderSystem.backupProjectionMatrix(); // ⭐️ 투영 행렬 백업 추가
+        System.out.println("[DEBUG] [Push] All Matrix states pushed.");
+
+        // 2단계: 뷰포트를 전체 화면 크기로 명시적으로 재설정합니다.
+        GlStateManager._viewport(0, 0, mainTarget.textureWidth, mainTarget.textureHeight);
+        System.out.println("[DEBUG] [Viewport Set] Set viewport to (0, 0, " + mainTarget.textureWidth + ", " + mainTarget.textureHeight + ")");
+
+
         boolean shouldVisionRender = shouldRenderExploitVision(client);
         if (exploitVisionShader != null && shouldVisionRender) {
+            System.out.println("[DEBUG] Rendering Exploit Vision Shader...");
             exploitVisionShader.render(mainTarget, OBJECT_ALLOCATOR);
-            // System.out.println("[DEBUG] Rendering Exploit Vision Shader: " + client.world.getTime()); // 렌더링 확인용 추가
-        } else if (exploitVisionShader == null && shouldVisionRender) {
-            // 🚨 셰이더 로드 실패/누락 디버그 추가
-            System.out.println("[ERROR] Exploit Vision Shader is NULL but shouldRender is TRUE.");
+            System.out.println("[DEBUG] Exploit Vision Shader Rendered.");
         }
 
 
         boolean shouldGlitchRender = shouldRenderGlitchEffect(client);
         if (glitchEffectShader != null && shouldGlitchRender) {
+            System.out.println("[DEBUG] Rendering Glitch Effect Shader...");
             glitchEffectShader.render(mainTarget, OBJECT_ALLOCATOR);
-            // System.out.println("[DEBUG] Rendering Glitch Effect Shader: " + client.world.getTime()); // 렌더링 확인용 추가
-        } else if (glitchEffectShader == null && shouldGlitchRender) {
-            // 🚨 셰이더 로드 실패/누락 디버그 추가
-            System.out.println("[ERROR] Glitch Effect Shader is NULL but shouldRender is TRUE.");
+            System.out.println("[DEBUG] Glitch Effect Shader Rendered.");
         }
+
+        // 3단계: 셰이더 렌더링이 끝난 후 저장된 이전 상태를 복원합니다.
+        RenderSystem.restoreProjectionMatrix(); // ⭐️ 투영 행렬 복원 추가
+        RenderSystem.getModelViewStack().popMatrix();
+
+        // ⭐️ LOG 3: 뷰포트 복원 후 상태 확인
+        System.out.println("[DEBUG] [Pop] All Matrix states popped. Restored previous rendering state.");
     }
+
 
     private static boolean shouldRenderExploitVision(MinecraftClient client) {
         if (!ClientExploitManager.isExploitActive()) {
