@@ -3,9 +3,6 @@ plugins {
     id 'maven-publish'
 }
 
-// DuplicatesStrategy를 사용하기 위해 import 합니다.
-import org.gradle.api.file.DuplicatesStrategy
-import org.gradle.jvm.tasks.Jar // Jar 타입을 사용하기 위해 추가
 
 version = project.mod_version
 group = project.maven_group
@@ -17,23 +14,21 @@ base {
 repositories {
     mavenCentral()
     maven { url 'https://maven.fabricmc.net/' }
+    maven {
+        name = 'GeckoLib'
+        url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+    }
 }
-
-// ----------------------------------------------------
-// ✅ 이 블록은 정확하게 작성되었습니다.
 sourceSets {
     main {
-        // Java 소스 파일 위치
         java {
             srcDirs 'src/main/java'
         }
-        // 리소스 파일 위치 (쉐이더 JSON, GLSL 등이 포함된 assets 폴더)
         resources {
             srcDirs 'src/main/resources'
         }
     }
 }
-// ----------------------------------------------------
 
 loom {
 
@@ -54,10 +49,10 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
     modImplementation "com.google.code.gson:gson:2.10.1"
     include(implementation("org.xerial:sqlite-jdbc:3.50.3.0"))
+    modImplementation "software.bernie.geckolib:geckolib-fabric-${minecraft_version}:${geckolib_version}"
 }
 
 processResources {
-    // 🛑 processResources에 대한 중복 처리 전략 (이전 오류 해결)
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     inputs.property "version", project.version
@@ -78,12 +73,9 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
-// ----------------------------------------------------
-// ✅ sourcesJar 태스크에 대한 중복 처리 전략 추가 (현재 오류 해결)
 tasks.named('sourcesJar', Jar) {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
-// ----------------------------------------------------
 
 jar {
     inputs.property "archivesName", project.base.archivesName
@@ -103,6 +95,5 @@ publishing {
     }
 
     repositories {
-        // Add repositories to publish to here.
     }
 }

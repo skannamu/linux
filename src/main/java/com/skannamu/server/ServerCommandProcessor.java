@@ -122,20 +122,15 @@ public class ServerCommandProcessor {
             String normalizedName = playerName.replaceAll("[^a-zA-Z0-9_-]", "_").toLowerCase();
             this.currentPath = TerminalCommands.normalizePath("/home/" + normalizedName);
 
-            // 🔴 수정: 파일 시스템 초기화 시도를 PlayerState 생성자에서 제거함.
-            // 이 로직은 skannamuMod.onPlayerJoin으로 이동합니다.
-            /*
-            if (TerminalCommands.getFileService() != null) {
-                TerminalCommands.getFileService().createDirectory(playerId, this.currentPath);
-            }
-            */
-
             availableCommands.add("ls");
             availableCommands.add("cat");
             availableCommands.add("cd");
             availableCommands.add("pwd");
             availableCommands.add("help");
             availableCommands.add("echo");
+            availableCommands.add("mkdir");
+            availableCommands.add("rm");
+
         }
 
 

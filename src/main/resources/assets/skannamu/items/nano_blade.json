@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "skannamu:item/nano_blade",
+    "model": {
+      "type": "geckolib:geckolib"
+    }
+  }
+}

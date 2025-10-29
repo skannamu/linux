@@ -10,6 +10,7 @@ import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
+import com.skannamu.item.weapon.NanoBladeItem;
 
 public class ModItems {
 
@@ -63,6 +64,17 @@ public class ModItems {
         return Registry.register(Registries.ITEM, itemKey, item);
     }
 
+    // 💡 NanoBladeItem 전용 등록 메서드 추가
+    private static Item registerNanoBlade(String name) {
+        Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
+        RegistryKey<Item> itemKey = RegistryKey.of(RegistryKeys.ITEM, id);
+
+        // NanoBladeItem을 사용하여 등록
+        Item item = new NanoBladeItem(new Item.Settings().maxCount(1).registryKey(itemKey));
+
+        return Registry.register(Registries.ITEM, itemKey, item);
+    }
+
 
     private static Item registerPortableTerminal(String name) {
         Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
@@ -86,7 +98,8 @@ public class ModItems {
 
         PORTABLE_TERMINAL = registerPortableTerminal("portable_terminal");
 
-        NANO_BLADE = registerSimpleItem("nano_blade");
+        // 💡 registerSimpleItem 대신 registerNanoBlade를 사용합니다.
+        NANO_BLADE = registerNanoBlade("nano_blade");
         BACKATTACK_MODULE = registerExploitModule("backattack_module");
 
         EMP_MODULE = registerAuxiliaryModule("emp_module");
