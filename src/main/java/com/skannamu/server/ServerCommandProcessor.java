@@ -28,12 +28,11 @@ public class ServerCommandProcessor {
             String commandName = payload.commandName().toLowerCase();
             ServerPlayerEntity player = context.player();
             MinecraftServer server = context.server();
-            LOGGER.info("Received ModuleActivationPayload for command: {} from player: {}", commandName, player.getGameProfile().getName());
+            LOGGER.info("Received for command: {} from player: {}", commandName, player.getGameProfile().getName());
 
             server.execute(() -> handleModuleActivation(player, commandName));
         });
     }
-
     public static void handleModuleActivation(ServerPlayerEntity player, String commandName) {
         PlayerState state = getPlayerState(player.getUuid());
         LOGGER.info("Handling activation for player: {}, command: {}, availableCommands before: {}",
@@ -109,13 +108,6 @@ public class ServerCommandProcessor {
         private boolean isHacked = false;
         private long hackedUntilTick = 0;
 
-        public enum CommandState {
-            INACTIVE, EMP_RANGE_PROMPT, EMP_DURATION_PROMPT, EMP_IFF_PROMPT
-        }
-        private CommandState currentCommandState = CommandState.INACTIVE;
-        private int empRange = 0;
-        private int empDuration = 0;
-
         public PlayerState(UUID playerId, String playerName) {
             this.playerId = playerId;
 
@@ -134,33 +126,15 @@ public class ServerCommandProcessor {
         }
 
 
-        public boolean isHackerActive() { return isHackerActive; }
-        public void setHackerActive(boolean hackerActive) { this.isHackerActive = hackerActive; }
         public long getActivationTime() { return activationTime; }
         public void setActivationTime(long activationTime) { this.activationTime = activationTime; }
         public String getCurrentPath() { return currentPath; }
         public void setCurrentPath(String currentPath) { this.currentPath = currentPath; }
         public boolean isCommandAvailable(String commandName) { return availableCommands.contains(commandName.toLowerCase()); }
         public void addCommand(String commandName) { availableCommands.add(commandName.toLowerCase()); }
-        public boolean isHacked() { return isHacked; }
-
-        public void setHacked(boolean hacked, int durationInTicks, MinecraftServer server) {
-            this.isHacked = hacked;
-            if (hacked) {
-                long currentTick = server.getTicks();
-                this.hackedUntilTick = currentTick + durationInTicks;
-            } else {
-                this.hackedUntilTick = 0;
-            }
-        }
-        public long getHackedUntilTick() { return hackedUntilTick; }
 
         public CommandState getCurrentCommandState() { return currentCommandState; }
         public void setCurrentCommandState(CommandState state) { this.currentCommandState = state; }
 
-        public int getEmpRange() { return empRange; }
-        public void setEmpRange(int empRange) { this.empRange = empRange; }
-        public int getEmpDuration() { return empDuration; }
-        public void setEmpDuration(int empDuration) { this.empDuration = empDuration; }
     }
 }

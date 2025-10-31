@@ -55,13 +55,8 @@ public class skannamuMod implements ModInitializer {
         VaultBlockEntities.registerBlockEntities();
 
         // Payload 등록 (S2C 및 C2S)
-        PayloadTypeRegistry.playS2C().register(ExploitSequencePayload.ID, ExploitSequencePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TerminalOutputPayload.ID, TerminalOutputPayload.CODEC);
-        PayloadTypeRegistry.playS2C().register(HackedStatusPayload.ID, HackedStatusPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TerminalCommandPayload.ID, TerminalCommandPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(ExploitTriggerPayload.ID, ExploitTriggerPayload.CODEC);
-
-        // Packet Handler 등록
         ServerPacketHandler.registerPayloads();
         ServerPacketHandler.registerHandlers();
         ServerCommandProcessor.registerPayloadsAndHandlers();
@@ -83,24 +78,19 @@ public class skannamuMod implements ModInitializer {
             server.execute(() -> ServerCommandProcessor.handleModuleActivation(player, commandName));
         });
 
-        // Lifecycle Events 등록
         ServerLifecycleEvents.SERVER_STARTING.register(skannamuMod::onServerStarting);
         DataLoader.registerDataLoaders();
         ServerLifecycleEvents.END_DATA_PACK_RELOAD.register(skannamuMod::onDataPackReloadEnd);
 
-        // 플레이어 접속 이벤트 등록
         ServerPlayConnectionEvents.JOIN.register(skannamuMod::onPlayerJoin);
 
-        ExploitScheduler.registerHandlers();
         TerminalCommands.initializeCommands();
-        ExploitCommand.registerDamageType();
 
         PORTABLE_TERMINAL = ModItems.PORTABLE_TERMINAL;
         STANDARD_BLOCK_ITEM = Registries.ITEM.get(Identifier.of(MOD_ID, "standard_block"));
 
         ServerTickEvents.END_SERVER_TICK.register(new ExploitScheduler());
 
-        LOGGER.info("[skannamuMod] Initialization complete.");
     }
 
     private static void onServerStarting(MinecraftServer server) {
@@ -109,15 +99,10 @@ public class skannamuMod implements ModInitializer {
         databaseService = new DatabaseService(server.getSavePath(WorldSavePath.ROOT));
         databaseService.createTables();
 
-        // MissionData가 내부적으로 빈 맵으로 초기화되도록 수정했으므로, 이 시점에 크래시가 발생하지 않습니다.
         filesystemService = new FilesystemService(new MissionData(), databaseService);
         TerminalCommands.setFilesystemService(filesystemService);
 
-        // 글로벌 경로 초기화는 MissionData가 필요하지 않으므로 여기서 실행합니다.
         filesystemService.initializeGlobalPaths();
-
-        LOGGER.info("[skannamuMod] Minimal Filesystem Service initialized (Awaiting MissionData).");
-
         ServerTickEvents.END_SERVER_TICK.register(skannamuMod::onServerTickEnd);
     }
 
@@ -131,7 +116,6 @@ public class skannamuMod implements ModInitializer {
         MissionData missionData = DataLoader.INSTANCE.getMissionDataInstance();
 
         if (missionData != null) {
-            // MissionData가 로드되면 FilesystemService를 새로 생성하여 완전한 데이터를 주입합니다.
             filesystemService = new FilesystemService(missionData, databaseService);
             TerminalCommands.setFilesystemService(filesystemService);
 
@@ -139,13 +123,9 @@ public class skannamuMod implements ModInitializer {
                 TerminalCommands.setActivationKey(missionData.terminal_settings.activation_key);
             } else {
                 TerminalCommands.setActivationKey("DEFAULT_KEY");
-                LOGGER.warn("[skannamuMod] Terminal settings not found in reloaded data. Using default activation key.");
             }
 
-            LOGGER.info("[skannamuMod] Filesystem Service and Terminal Commands successfully re-initialized with MissionData.");
         } else {
-            // 데이터 로드 실패 로그
-            LOGGER.error("[skannamuMod] MissionData load failed or is null. Running with default/empty configuration.");
         }
     }
 
@@ -155,8 +135,6 @@ public class skannamuMod implements ModInitializer {
         ServerCommandProcessor.PlayerState state = ServerCommandProcessor.getPlayerState(player);
 
         if (TerminalCommands.getFileService() != null) {
-            // 플레이어의 홈 디렉토리를 DB에 생성합니다. (이미 존재하면 무시됨)
-            // FilesystemService.checkPathType의 수정으로 /home이 이제 디렉토리로 인식되어야 합니다.
             TerminalCommands.getFileService().createDirectory(player.getUuid(), state.getCurrentPath());
         } else {
             LOGGER.warn("[skannamuMod] Player {} joined before FSS was fully initialized. Terminal commands may fail.", player.getGameProfile().getName());

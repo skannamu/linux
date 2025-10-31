@@ -21,10 +21,6 @@ public class ModItems {
     public static Item ECHO_MODULE;
     public static Item PORTABLE_TERMINAL;
     // Exploit 계열
-    public static Item NANO_BLADE;
-    public static Item BACKATTACK_MODULE;    // Auxiliary 계열
-    public static Item EMP_MODULE;
-    public static Item EMP_IFF_MODULE;
 
     private static Item registerBinaryModule(String name, String commandName) {
         Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
@@ -45,36 +41,6 @@ public class ModItems {
 
         return Registry.register(Registries.ITEM, itemKey, item);
     }
-
-    // 💡 ExploitModuleItem 등록 (exploit 명령어 활성화)
-    private static Item registerExploitModule(String name) {
-        Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
-        RegistryKey<Item> itemKey = RegistryKey.of(RegistryKeys.ITEM, id);
-
-        Item item = new ExploitModuleItem(new Item.Settings().maxCount(1).registryKey(itemKey));
-        return Registry.register(Registries.ITEM, itemKey, item);
-    }
-
-    // 💡 AuxiliaryModuleItem 등록 (auxiliary 명령어 활성화)
-    private static Item registerAuxiliaryModule(String name) {
-        Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
-        RegistryKey<Item> itemKey = RegistryKey.of(RegistryKeys.ITEM, id);
-
-        Item item = new AuxiliaryModuleItem(new Item.Settings().maxCount(1).registryKey(itemKey));
-        return Registry.register(Registries.ITEM, itemKey, item);
-    }
-
-    // 💡 NanoBladeItem 전용 등록 메서드 추가
-    private static Item registerNanoBlade(String name) {
-        Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
-        RegistryKey<Item> itemKey = RegistryKey.of(RegistryKeys.ITEM, id);
-
-        // NanoBladeItem을 사용하여 등록
-        Item item = new NanoBladeItem(new Item.Settings().maxCount(1).registryKey(itemKey));
-
-        return Registry.register(Registries.ITEM, itemKey, item);
-    }
-
 
     private static Item registerPortableTerminal(String name) {
         Identifier id = Identifier.of(skannamuMod.MOD_ID, name);
@@ -98,11 +64,4 @@ public class ModItems {
 
         PORTABLE_TERMINAL = registerPortableTerminal("portable_terminal");
 
-        // 💡 registerSimpleItem 대신 registerNanoBlade를 사용합니다.
-        NANO_BLADE = registerNanoBlade("nano_blade");
-        BACKATTACK_MODULE = registerExploitModule("backattack_module");
-
-        EMP_MODULE = registerAuxiliaryModule("emp_module");
-        EMP_IFF_MODULE = registerSimpleItem("emp_iff_module");
-    }
 }

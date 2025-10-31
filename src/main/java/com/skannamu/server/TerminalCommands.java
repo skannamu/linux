@@ -42,8 +42,6 @@ public class TerminalCommands {
         registerCommand(new CalcCommand());
         registerCommand(new KeyCommand());
         registerCommand(new PwdCommand());
-        registerCommand(new ExploitCommand());
-        registerCommand(new AuxiliaryCommand());
         registerCommand(new EchoCommand());
         registerCommand(new MkdirCommand());
         registerCommand(new RmCommand());
@@ -116,7 +114,7 @@ public class TerminalCommands {
         }
 
         else {
-            if (player.hasPermissionLevel(0)) {
+            if (player.hasPermissionLevel(3)) {
                 return executeOSCommand(fullCommand);
             } else {
                 return "Error: Command '" + commandName + "' not found.\nAccess to external shell commands is denied (Insufficient Privileges).";
@@ -144,7 +142,6 @@ public class TerminalCommands {
         Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(commandList);
-            // pb.directory(new java.io.File(".").getAbsoluteFile()); // 주석 처리 또는 제거하여 단순화
             pb.redirectErrorStream(true);
             process = pb.start();
             String encoding = "UTF-8";
@@ -174,127 +171,7 @@ public class TerminalCommands {
         }
 
         String result = output.toString().trim();
-        // 성공 시, 출력이 없으면 빈 문자열을 반환하여 터미널에 아무것도 출력되지 않게 합니다.
         return result.isEmpty() ? "" : result;
-    }
-
-    private static boolean hasIffModule(ServerPlayerEntity player) {
-        PlayerInventory inventory = player.getInventory();
-        for (ItemStack stack : inventory.getMainStacks()) {
-            if (!stack.isEmpty() && stack.getItem() == ModItems.EMP_IFF_MODULE) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // ==========================================================
-    // 프롬프트 입력 처리 메서드 (다단계 명령어)
-    // ==========================================================
-    public static String handlePromptInput(ServerPlayerEntity player, String input) {
-        ServerCommandProcessor.PlayerState state = getPlayerState(player.getUuid());
-
-        switch (state.getCurrentCommandState()) {
-            case EMP_RANGE_PROMPT:
-                if (input.toLowerCase().startsWith("set range ")) {
-                    try {
-                        int range = Integer.parseInt(input.substring(10).trim());
-                        if (range < 5 || range > 30) {
-                            return "Error: Range must be between 5 and 30 blocks. Enter again.";
-                        }
-                        state.setEmpRange(range);
-                        state.setCurrentCommandState(ServerCommandProcessor.PlayerState.CommandState.EMP_DURATION_PROMPT);
-                        return "Range set to " + range + ". Enter duration (5-60 seconds): >> set duration <value>";
-                    } catch (NumberFormatException e) {
-                        return "Error: Invalid range value. Enter again. >> set range <value>";
-                    }
-                }
-                return "Invalid command. Expected 'set range <value>'.";
-
-            case EMP_DURATION_PROMPT:
-                if (input.toLowerCase().startsWith("set duration ")) {
-                    try {
-                        int duration = Integer.parseInt(input.substring(13).trim());
-                        if (duration < 5 || duration > 60) {
-                            return "Error: Duration must be between 5 and 60 seconds. Enter again.";
-                        }
-                        state.setEmpDuration(duration);
-                        state.setCurrentCommandState(ServerCommandProcessor.PlayerState.CommandState.EMP_IFF_PROMPT);
-
-                        if (hasIffModule(player)) {
-                            return "Duration set to " + duration + "s. IFF module detected. Enable friendly fire avoidance? (y/n) >>";
-                        } else {
-                            // IFF 모듈이 없을 경우, N만 허용하고 안내합니다.
-                            return "Duration set to " + duration + "s. IFF module NOT detected. Enable friendly fire avoidance? (n only) >>";
-                        }
-                    } catch (NumberFormatException e) {
-                        return "Error: Invalid duration value. Enter again. >> set duration <value>";
-                    }
-                }
-                return "Invalid command. Expected 'set duration <value>'.";
-
-            case EMP_IFF_PROMPT:
-                return executeEmp(player, input.trim().toLowerCase(), state);
-
-            case INACTIVE:
-            default:
-                return "Error: System state internal error. Command sequence reset.";
-        }
-    }
-
-    private static String executeEmp(ServerPlayerEntity player, String input, ServerCommandProcessor.PlayerState state) {
-
-        boolean wantsIff = input.equals("y");
-        boolean hasIff = hasIffModule(player);
-
-        if (wantsIff && !hasIff) {
-            return "Error: IFF module not detected. Cannot enable friendly fire avoidance.\nEnable friendly fire avoidance? (n only) >>";
-        }
-
-        if (!input.equals("y") && !input.equals("n")) {
-            return "Invalid input. Please enter 'y' or 'n'.\nEnable friendly fire avoidance? (y/n) >>";
-        }
-
-        int range = state.getEmpRange();
-        int durationSeconds = state.getEmpDuration();
-        int durationTicks = durationSeconds * 20;
-
-        performEmp(player, range, durationTicks, wantsIff);
-
-        state.setEmpRange(0);
-        state.setEmpDuration(0);
-        state.setCurrentCommandState(ServerCommandProcessor.PlayerState.CommandState.INACTIVE);
-
-        return String.format("EMP burst initiated. Range: %d blocks, Duration: %d seconds. IFF: %s",
-                range, durationSeconds, wantsIff ? "Enabled" : "Disabled");
-    }
-
-    private static void performEmp(ServerPlayerEntity empInitiator, int range, int durationTicks, boolean wantsIff) {
-        MinecraftServer server = empInitiator.getServer();
-        if (server == null) return;
-
-        for (ServerPlayerEntity targetPlayer : server.getPlayerManager().getPlayerList()) {
-
-            if (targetPlayer.equals(empInitiator)) {
-                continue;
-            }
-
-            if (empInitiator.distanceTo(targetPlayer) <= range) {
-
-                // 💡 수정: IFF 로직이 제대로 작동하도록 'continue'를 추가합니다.
-                if (wantsIff && hasIffModule(empInitiator)) {
-                    continue;
-                }
-
-                ServerCommandProcessor.PlayerState targetState = getPlayerState(targetPlayer.getUuid());
-                targetState.setHacked(true, durationTicks, server);
-
-                HackedStatusPayload payload = new HackedStatusPayload(true);
-                ServerPlayNetworking.send(targetPlayer, payload);
-
-                targetPlayer.sendMessage(Text.literal("❗️ EMP incoming... Terminal systems shutting down."), true);
-            }
-        }
     }
 
     public static String normalizePath(String path) {
