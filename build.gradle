@@ -1,0 +1,99 @@
+plugins {
+    id 'fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://maven.fabricmc.net/' }
+    maven {
+        name = 'GeckoLib'
+        url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+    }
+}
+sourceSets {
+    main {
+        java {
+            srcDirs 'src/main/java'
+        }
+        resources {
+            srcDirs 'src/main/resources'
+        }
+    }
+}
+
+loom {
+
+    mods {
+        "${project.archives_base_name}" {
+            sourceSet sourceSets.main
+        }
+    }
+    mixin {
+        defaultRefmapName = "mixins.${project.archives_base_name}.refmap.json"
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation "com.google.code.gson:gson:2.10.1"
+    include(implementation("org.xerial:sqlite-jdbc:3.50.3.0"))
+    modImplementation "software.bernie.geckolib:geckolib-fabric-${minecraft_version}:${geckolib_version}"
+}
+
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": inputs.properties.version
+    }
+
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.named('sourcesJar', Jar) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+jar {
+    inputs.property "archivesName", project.base.archivesName
+
+    from("LICENSE") {
+        rename { "${it}_${inputs.properties.archivesName}"}
+    }
+}
+
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+
+    repositories {
+    }
+}
